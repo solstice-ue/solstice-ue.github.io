@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Solstice.AssetRegistry/Solstice.AssetRegistry.csproj" />
+    <Project Path="src/Solstice.Bin/Solstice.Bin.csproj" />
     <Project Path="src/Solstice.Core/Solstice.Core.csproj" />
     <Project Path="src/Solstice.Web/Solstice.Web.csproj" />
   </Folder>

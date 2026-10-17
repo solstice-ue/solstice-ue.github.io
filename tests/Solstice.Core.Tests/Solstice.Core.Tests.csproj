@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Solstice.Core\Solstice.Core.csproj" />
+    <ProjectReference Include="..\..\src\Solstice.Bin\Solstice.Bin.csproj" />
   </ItemGroup>
 
   <ItemGroup>
