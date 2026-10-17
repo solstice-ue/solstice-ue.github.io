@@ -1,9 +1,17 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <!--
+    Phase 0：引用移植层（把 submodule 里的上游源码编成库），验证它能否在 WASM 里跑。
+    不能直接引用上游 exe 项目，原因见 Solstice.AssetRegistry.csproj 里的注释。
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\Solstice.AssetRegistry\Solstice.AssetRegistry.csproj" />
+  </ItemGroup>
 
 </Project>

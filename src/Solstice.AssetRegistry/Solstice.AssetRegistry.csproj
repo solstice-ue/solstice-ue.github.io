@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>UAssetRegistry</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="UAssetAPI" Version="1.1.0" />
+  </ItemGroup>
+
+  <!--
+    移植层：直接编译 submodule 里的上游源码，而不是引用它的 exe 项目。
+
+    原因：上游 UAssetRegistry.csproj 是 OutputType=Exe（带 Program.cs 的 CLI），
+    而 Blazor WASM 应用是自包含可执行文件，.NET 不允许自包含 Exe 引用非自包含 Exe
+    （NETSDK1150）。把源码编成库绕开这个限制，同时保留「边移植边改」的能力。
+
+    只包含 AssetRegistry/ 目录，排除上游的 Program.cs（CLI 入口）。
+    上游更新后需要重新核对目录结构，见 docs/project-structure.md。
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\external\UAssetRegistry\AssetRegistry\**\*.cs" LinkBase="Upstream" />
+  </ItemGroup>
+
+</Project>

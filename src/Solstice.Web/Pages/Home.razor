@@ -71,10 +71,24 @@ else
 
                     <div class="solstice-k">bFilterEditorOnly</div>
                     <div><code>@_header.FilterEditorOnly</code></div>
+
+                    <div class="solstice-k">资产数量</div>
+                    <div>
+                        @if (_parseError is not null)
+                        {
+                            <span class="solstice-bad" style="margin:0">解析失败：@_parseError</span>
+                        }
+                        else
+                        {
+                            <strong>@_assetCount</strong>
+                            <span class="solstice-muted">· 全量解析 @_parseMs ms</span>
+                        }
+                    </div>
                 </div>
 
                 <div class="solstice-note">
-                    资产数组、name 表、FStore 与依赖节点<strong>尚未解析</strong>——要等既有库移植进 WASM（路线图 Phase 0）。
+                    资产数量由 submodule 里的 UAssetRegistry 在<strong>浏览器内</strong>解析得出，未上传任何数据。
+                    资产列表、编辑与写回仍未接入。
                 </div>
             </FlareCard>
         }
@@ -168,6 +182,9 @@ else
     private string? _sha256;
     private AssetRegistryHeader? _header;
     private string? _error;
+    private int _assetCount;
+    private long _parseMs;
+    private string? _parseError;
 
     private bool _addOpen;
     private bool _confirmOpen;
@@ -264,6 +281,19 @@ else
             }
 
             _header = header;
+
+            // Phase 0 探针：在浏览器内跑一遍既有库的完整解析，证明它能在 WASM 下工作。
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            if (AssetRegistryProbe.TryCountAssets(bytes, out var count, out var parseError))
+            {
+                _assetCount = count;
+            }
+            else
+            {
+                _parseError = parseError;
+            }
+            sw.Stop();
+            _parseMs = sw.ElapsedMilliseconds;
         }
         catch (Exception ex)
         {
