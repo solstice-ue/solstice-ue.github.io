@@ -66,6 +66,20 @@ dotnet run --project tests/Solstice.Core.Tests     # 跑测试
 | `NU1301 ... 安全包中没有可用的凭证` | 受限令牌下 Windows SChannel 拿不到 TLS 凭证 | 还原需在无限制权限下执行，或配置本地包源 |
 | `MSB4216 无法连接到任务宿主` | Blazor 的 WASM 构建任务需要命名管道 | 构建需在无限制权限下执行 |
 | `Testhost 进程已退出 ... Win32Exception (5)` | VSTest 的 testhost 无权打开父进程句柄 | **改用 xunit v3**，见下 |
+| `git push` 报 `Failed to connect to github.com:443` | 本机网络到 `github.com:443` 不通（`api.github.com` 与 SSH 正常） | 远程改用 **SSH over 443**：`ssh://git@ssh.github.com:443/solstice-ue/solstice-ue.github.io.git`，见下 |
+
+### git 远程为什么是 `ssh.github.com:443`
+
+本机 `github.com:443` 不可达，但 `ssh.github.com:443` 与 `github.com:22` 正常。因此 origin 指向 SSH-over-443，并在仓库内固定了密钥：
+
+```bash
+git remote -v
+# origin  ssh://git@ssh.github.com:443/solstice-ue/solstice-ue.github.io.git
+
+git config --local core.sshCommand "ssh -i <key> -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+```
+
+`ccb-team` 远程仍指向原仓库，保持上游同步能力。
 
 ### 为什么测试用 xunit v3 而不是 `dotnet test`
 
@@ -81,15 +95,25 @@ dotnet run --project tests/Solstice.Core.Tests
 
 ## 5. 部署（GitHub Pages）
 
+**已上线：<https://solstice-ue.github.io/>**
+
+| 项 | 值 |
+|---|---|
+| 仓库 | `solstice-ue/solstice-ue.github.io`（组织 `solstice-ue`） |
+| 站点形态 | 根站点，`<base href="/">`，无子路径问题 |
+| 构建方式 | GitHub Actions 的 `build_type=workflow`，**不是** Jekyll 分支 |
+| 工作流 | [`.github/workflows/deploy-pages.yml`](../.github/workflows/deploy-pages.yml)：restore → test → publish → upload `publish/wwwroot` |
+| 实测 | build 46s + deploy 10s；线上首屏 WASM 启动约 42s（6 MB 资源首次未缓存），console 无报错 |
+
 ```bash
 dotnet publish src/Solstice.Web -c Release -o publish
 ```
 
 发布前必须处理（详见 `docs/architecture.md` §10）：
 
-- 加 `.nojekyll`
-- 子路径部署要设 `<base href>`
-- `.wasm` 的 MIME 与压缩后缀要和 `blazor.boot.json` 一致
+- 加 `.nojekyll`（用 Actions 部署时不需要）
+- 子路径部署要设 `<base href>`（当前是根站点，不涉及）
+- `.wasm` 的 MIME 与压缩后缀要和启动清单一致（Pages 已正确返回 `application/wasm`）
 - **不能启用 WASM 多线程**（Pages 无法设置 COOP/COEP）
 
 ## 6. 尚待确定

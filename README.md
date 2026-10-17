@@ -5,6 +5,8 @@
 > **状态：概念 / 早期工程计划。** 本仓库不声称每一项计划中的能力都已实现或已验证。
 >
 > 目标游戏为 **KARDS**（UE 5.6.1），解析能力计划通过**移植 CCB-TEAM 既有 C# 库**获得，而不是从零实现。完整定位见 [docs/vision.md](docs/vision.md)。
+>
+> **在线预览：<https://solstice-ue.github.io/>** —— 每次 push 到 `main` 自动构建部署。
 
 ## 项目方向
 
