@@ -24,6 +24,10 @@
     -->
     <link rel="stylesheet" href="https://registry.npmmirror.com/misans/5.0.0/files/lib/Normal/MiSansVF.min.css" />
 
+    <!-- Blazor.Diagrams（WTG 分支）：画布样式与 JS 桥 -->
+    <link rel="stylesheet" href="_content/WTG.Z.Blazor.Diagrams/style.min.css" />
+    <link rel="stylesheet" href="_content/WTG.Z.Blazor.Diagrams/default.styles.min.css" />
+
     <link rel="icon" type="image/png" href="favicon.png" />
     <script type="importmap"></script>
 
@@ -341,6 +345,17 @@
             color: var(--flare-color-on-error-container);
         }
 
+        /* ---------- 节点图画布 ---------- */
+        .solstice-canvas {
+            height: 70vh;
+            min-height: 420px;
+            margin-top: 12px;
+            border: 1px solid var(--flare-color-outline-variant);
+            border-radius: var(--flare-shape-large);
+            overflow: hidden;
+            background: var(--flare-color-surface-container-lowest);
+        }
+
         /* ---------- 错误条 ---------- */
         #blazor-error-ui {
             display: none; position: fixed; bottom: 0; left: 0; right: 0;
@@ -364,6 +379,7 @@
     </div>
     <script src="js/dropzone.js"></script>
     <script src="js/download.js"></script>
+    <script src="_content/WTG.Z.Blazor.Diagrams/script.min.js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 

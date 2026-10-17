@@ -25,7 +25,7 @@ public class NameBatchHashTests
         }
 
         var file = File.ReadAllBytes(path);
-        var mismatches = NameBatchHasher.CountMismatches(file, out var error, out var count);
+        var mismatches = NameBatchRebuilder.CountMismatches(file, out var error, out var count);
 
         Console.WriteLine($"[hash] name 条数 {count}；不匹配 {mismatches}；错误 {error ?? "无"}");
 
@@ -45,7 +45,7 @@ public class NameBatchHashTests
         var doc = Solstice.Core.AssetRegistry.AssetRegistryDocument.Load(File.ReadAllBytes(path));
         var output = doc.Save();
 
-        var mismatches = NameBatchHasher.CountMismatches(output, out var error, out var count);
+        var mismatches = NameBatchRebuilder.CountMismatches(output, out var error, out var count);
 
         Console.WriteLine($"[hash] 写回后 name 条数 {count}；不匹配 {mismatches}");
 

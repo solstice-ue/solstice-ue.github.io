@@ -1,0 +1,93 @@
+@page "/graph"
+@using Blazor.Diagrams
+@using Blazor.Diagrams.Core
+@using Blazor.Diagrams.Core.Models
+@using Blazor.Diagrams.Core.Geometry
+@using Blazor.Diagrams.Components
+
+<PageTitle>Solstice · 节点图</PageTitle>
+
+<div class="solstice-page">
+    <div class="solstice-head">
+        <h1 class="solstice-h1">节点图 spike</h1>
+        <span class="solstice-spacer"></span>
+        <span class="solstice-muted">@_nodeCount 个节点 · @_linkCount 条连线</span>
+    </div>
+
+    <p class="solstice-muted">
+        假数据，只用来验证 Blazor.Diagrams 在 WASM 下渲染几百个节点的表现。
+        拖节点、滚轮缩放、拖端口连线都可以试。
+    </p>
+
+    <div class="solstice-canvas">
+        <CascadingValue Value="_diagram">
+            <DiagramCanvas />
+        </CascadingValue>
+    </div>
+
+    <div class="solstice-note">
+        正式接 UKAPI 时，节点内容会换成 Razor 组件（枚举下拉、内联值编辑），
+        连线规则由 Core 提供。这里先只测画布本身。
+    </div>
+</div>
+
+@code {
+    private BlazorDiagram _diagram = null!;
+    private int _nodeCount;
+    private int _linkCount;
+
+    protected override void OnInitialized()
+    {
+        _diagram = new BlazorDiagram();
+        BuildFakeGraph();
+    }
+
+    /// <summary>
+    /// 造一个 300 节点的假图：每行 20 个，节点之间串起来，
+    /// 再给每第 5 个节点加一条跨行连线，模拟 Kismet 里的分支跳转。
+    /// </summary>
+    private void BuildFakeGraph()
+    {
+        const int columns = 20;
+        const int rows = 15;
+        const double dx = 210;
+        const double dy = 120;
+
+        var nodes = new NodeModel[columns * rows];
+
+        for (var r = 0; r < rows; r++)
+        {
+            for (var c = 0; c < columns; c++)
+            {
+                var index = r * columns + c;
+                var node = new NodeModel(new Point(c * dx + 40, r * dy + 40))
+                {
+                    Title = $"K2Node_{index:000}"
+                };
+
+                node.AddPort(PortAlignment.Left);
+                node.AddPort(PortAlignment.Right);
+
+                nodes[index] = node;
+                _diagram.Nodes.Add(node);
+            }
+        }
+
+        for (var i = 0; i < nodes.Length - 1; i++)
+        {
+            _diagram.Links.Add(new LinkModel(
+                nodes[i].GetPort(PortAlignment.Right),
+                nodes[i + 1].GetPort(PortAlignment.Left)));
+        }
+
+        for (var i = 0; i + columns < nodes.Length; i += 5)
+        {
+            _diagram.Links.Add(new LinkModel(
+                nodes[i].GetPort(PortAlignment.Right),
+                nodes[i + columns].GetPort(PortAlignment.Left)));
+        }
+
+        _nodeCount = _diagram.Nodes.Count;
+        _linkCount = _diagram.Links.Count;
+    }
+}

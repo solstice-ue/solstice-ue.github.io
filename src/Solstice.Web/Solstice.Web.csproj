@@ -12,6 +12,7 @@
     <PackageReference Include="Flare.Theme.MaterialDesign3" Version="0.44.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.13" PrivateAssets="all" />
+    <PackageReference Include="WTG.Z.Blazor.Diagrams" Version="4.0.31" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,9 +26,7 @@
     只复制、不维护第二份源码。
   -->
   <Target Name="CopySpaFallbackTo404" AfterTargets="Publish">
-    <Copy SourceFiles="$(PublishDir)wwwroot/index.html"
-          DestinationFiles="$(PublishDir)wwwroot/404.html"
-          Condition="Exists('$(PublishDir)wwwroot/index.html')" />
+    <Copy SourceFiles="$(PublishDir)wwwroot/index.html" DestinationFiles="$(PublishDir)wwwroot/404.html" Condition="Exists('$(PublishDir)wwwroot/index.html')" />
   </Target>
 
 </Project>

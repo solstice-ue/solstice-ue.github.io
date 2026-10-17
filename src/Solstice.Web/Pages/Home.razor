@@ -369,8 +369,15 @@ else
         {
             var bytes = _doc.Save();
             var name = (_fileName ?? "AssetRegistry.bin").Replace(".bin", "") + ".edited.bin";
+
+            // 导出前自查：name batch 的 numStringBytes / 哈希是否真的写对了。
+            var mismatches = Solstice.AssetRegistry.NameBatchRebuilder.CountMismatches(bytes, out var checkError, out var nameCount);
+
             await JS.InvokeVoidAsync("solsticeDownload", name, Convert.ToBase64String(bytes));
-            _message = $"已导出 {name}（{FormatSize(bytes.LongLength)}）。写回是语义级的，字节与原文件不同。";
+
+            _message = checkError is null
+                ? $"已导出 {name}（{FormatSize(bytes.LongLength)}）· name 表 {nameCount} 条，哈希不匹配 {mismatches} 条。"
+                : $"已导出 {name}，但自查失败：{checkError}";
         }
         catch (Exception ex)
         {

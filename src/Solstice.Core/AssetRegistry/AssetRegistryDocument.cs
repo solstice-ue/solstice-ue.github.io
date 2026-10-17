@@ -146,12 +146,13 @@ public sealed class AssetRegistryDocument
     {
         var bytes = AssetRegistryLoader.SaveToBytes(_state);
 
-        if (!Solstice.AssetRegistry.NameBatchHasher.TryPatch(bytes, out var error))
+        var rebuilt = Solstice.AssetRegistry.NameBatchRebuilder.Rebuild(bytes, out var error);
+        if (rebuilt is null)
         {
             throw new InvalidOperationException($"写回后无法修复 name batch 哈希：{error}");
         }
 
-        return bytes;
+        return rebuilt;
     }
 
     /// <summary>
