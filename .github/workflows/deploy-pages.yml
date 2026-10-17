@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 解析器来自 submodule（external/UAssetRegistry、external/ULocres），
+          # 不拉子模块会直接编译失败。
+          submodules: recursive
 
       - uses: actions/setup-dotnet@v4
         with:
