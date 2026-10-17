@@ -31,6 +31,9 @@
   -->
   <ItemGroup>
     <Compile Include="..\..\external\UAssetRegistry\AssetRegistry\**\*.cs" LinkBase="Upstream" />
+    <!-- 这个文件在 Vendored/ 下有打了补丁的副本（tag map handle 的 bit63），
+         必须把上游那份排除掉，否则类型重复定义。 -->
+    <Compile Remove="..\..\external\UAssetRegistry\AssetRegistry\FAssetRegistryWriter.cs" />
   </ItemGroup>
 
 </Project>

@@ -63,6 +63,19 @@ public class DiagnosticsTests
     }
 
     [Fact]
+    public void 写回依赖的版本字段()
+    {
+        if (SamplePath is not { } path)
+        {
+            return;
+        }
+
+        var doc = Solstice.Core.AssetRegistry.AssetRegistryDocument.Load(File.ReadAllBytes(path));
+        Console.WriteLine($"[ver] RegistryVersion={doc.RegistryVersion}  ObjectVersion={doc.ObjectVersion}");
+        Console.WriteLine($"[ver] 首条 ChunkIDs={doc.FirstChunkIds}  PackageFlags={doc.FirstPackageFlags}");
+    }
+
+    [Fact]
     public void 卡牌资产的双条目规律()
     {
         if (SamplePath is not { } path)

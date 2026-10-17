@@ -32,6 +32,27 @@ public sealed class AssetRegistryDocument
     /// <summary>资产条数。</summary>
     public int Count => _state.PreallocatedAssetDataBuffers.Length;
 
+    /// <summary>注册表格式版本（KARDS 样本为 21）。</summary>
+    public int RegistryVersion => (int)_state.Version;
+
+    /// <summary>
+    /// 写回时决定「写不写 PackageFlags / ChunkIDs」的 ObjectVersion。
+    /// 若低于 UE4 阈值，资产记录会比原文件短，UE 解析直接错位。
+    /// </summary>
+    public int ObjectVersion => (int)_state.Ver;
+
+    /// <summary>诊断用：首条资产的 ChunkIDs。</summary>
+    public string FirstChunkIds =>
+        _state.PreallocatedAssetDataBuffers.Length == 0
+            ? "(空)"
+            : string.Join(",", _state.PreallocatedAssetDataBuffers[0].ChunkIDs);
+
+    /// <summary>诊断用：首条资产的 PackageFlags。</summary>
+    public string FirstPackageFlags =>
+        _state.PreallocatedAssetDataBuffers.Length == 0
+            ? "(空)"
+            : _state.PreallocatedAssetDataBuffers[0].PackageFlags.ToString();
+
     /// <summary>解析字节。失败抛异常，由调用方转成可读诊断。</summary>
     public static AssetRegistryDocument Load(byte[] data) =>
         new(AssetRegistryLoader.LoadFromBytes(data));
