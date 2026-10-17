@@ -90,4 +90,34 @@ public sealed class AssetRegistryDocument
 
     /// <summary>语义级写回。输出是合法的 AssetRegistry.bin，但字节与原文件不同。</summary>
     public byte[] Save() => AssetRegistryLoader.SaveToBytes(_state);
+
+    /// <summary>
+    /// 逐条快照，用于写回前后比对。包含 tags、ChunkIDs 与 PackageFlags，
+    /// 任何一项丢失都说明写回不是「语义级等价」。
+    /// </summary>
+    public IReadOnlyList<string> Snapshot()
+    {
+        var buffer = _state.PreallocatedAssetDataBuffers;
+        var result = new string[buffer.Length];
+
+        for (var i = 0; i < buffer.Length; i++)
+        {
+            var a = buffer[i];
+            var tags = string.Join(
+                "|",
+                a.TagsAndValues
+                    .Select(kv => $"{kv.Key}={kv.Value}")
+                    .OrderBy(s => s, StringComparer.Ordinal));
+
+            result[i] = string.Join(
+                "\u0001",
+                a.ObjectPath,
+                a.AssetClass.ToString(),
+                string.Join(",", a.ChunkIDs),
+                a.PackageFlags.ToString(),
+                tags);
+        }
+
+        return result;
+    }
 }

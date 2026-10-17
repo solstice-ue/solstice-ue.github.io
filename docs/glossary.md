@@ -21,7 +21,7 @@
 | **`FAssetRegistryState`** | 完整解析结果：资产数组 + 依赖节点 + 包数据 |
 | **`FStore`** | 注册表内部的字符串存储区（AnsiString / WideString 表），Tags 的值都存在这里 |
 | **`FName`** | UE 的名字类型，由字符串 + number 后缀组成（如 `ZenLogo_64`） |
-| **语义级回写** | 把解析结果重新序列化成**合法的** bin。输出合法、读回一致，但**字节与原文件不同** |
+| **语义级回写** | 把解析结果重新序列化成**合法的** bin。输出合法、读回一致，但**字节与原文件不同**。实测 KARDS 样本体积会缩小约 12%（tag 值从 WideString 统一重编码为 AnsiString），条目内容不受影响 |
 | **字节级一致** | 输出与输入逐字节相同。**当前不承诺**，要字节一致必须保留原始 `FValueId` 类型 |
 | **version 21** | `FAssetRegistryVersionType.ExternalActorToWorldIsEditorOnly`。KARDS 实测版本；也是 UAssetRegistry 建议的写入版本（v24 有 16 字节对齐问题） |
 

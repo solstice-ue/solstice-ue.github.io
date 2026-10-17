@@ -284,6 +284,23 @@
             margin-bottom: 14px;
         }
         .solstice-toolbar > :first-child { min-width: 320px; }
+        .solstice-search {
+            min-width: 320px;
+            padding: 10px 14px;
+            border: 1px solid var(--flare-color-outline);
+            border-radius: var(--flare-shape-full);
+            background: var(--flare-color-surface-container-highest);
+            color: var(--flare-color-on-surface);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+        }
+        .solstice-search:focus {
+            border-color: var(--flare-color-primary);
+        }
+        .solstice-search::placeholder {
+            color: var(--flare-color-on-surface-variant);
+        }
         .solstice-grid-wrap {
             max-height: 52vh;
             overflow: auto;

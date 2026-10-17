@@ -77,7 +77,16 @@ else
 
         <FlareCard Style="margin-top:16px">
             <div class="solstice-toolbar">
-                <FlareTextField Label="搜索 ObjectPath / 类名" @bind-Value="_search" />
+                @* 用原生 input + oninput：FlareTextField 的 ValueChanged 在失焦时才触发，
+                   做不到「边打边过滤」。 *@
+                <input class="solstice-search"
+                       placeholder="搜索 ObjectPath / 类名"
+                       value="@_search"
+                       @oninput="OnSearchInput" />
+                @if (_search.Length > 0)
+                {
+                    <FlareButton Variant="ButtonVariant.Text" OnClick="ClearSearch">清除</FlareButton>
+                }
                 <span class="solstice-spacer"></span>
                 <span class="solstice-muted">
                     匹配 @_matchCount 条 · 显示前 @DisplayLimit 条
@@ -218,6 +227,18 @@ else
     }
 
     private string PreviewObjectPath => $"{PreviewPackagePath}/{PreviewAssetName}.{PreviewAssetName}";
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? "";
+        RefreshView();
+    }
+
+    private void ClearSearch()
+    {
+        _search = "";
+        RefreshView();
+    }
 
     private void RefreshView()
     {
