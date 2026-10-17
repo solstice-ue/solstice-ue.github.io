@@ -32,6 +32,9 @@ public sealed class NameBatch
     private readonly List<ushort> _headers = new();
     private readonly List<string> _names = new();
 
+    /// <summary>名字 → 索引。避免 FindOrAdd 的线性扫描（30k 名字时是 O(n²)）。</summary>
+    private readonly Dictionary<string, int> _index = new(StringComparer.Ordinal);
+
     public IReadOnlyList<string> Names => _names;
     public int Count => _names.Count;
 
@@ -64,6 +67,7 @@ public sealed class NameBatch
             batch._strings.Add(raw);
             batch._headers.Add(h);
             batch._names.Add(name);
+            batch._index[name] = batch._names.Count - 1;
         }
 
         end = cursor;
@@ -73,12 +77,9 @@ public sealed class NameBatch
     /// <summary>名字已存在则返回索引；否则追加到末尾（原有索引不变）并返回新索引。</summary>
     public int FindOrAdd(string name)
     {
-        for (var i = 0; i < _names.Count; i++)
+        if (_index.TryGetValue(name, out var existing))
         {
-            if (string.Equals(_names[i], name, StringComparison.Ordinal))
-            {
-                return i;
-            }
+            return existing;
         }
 
         var isAscii = IsPureAscii(name);
@@ -101,7 +102,10 @@ public sealed class NameBatch
         _headers.Add(header);
         _names.Add(name);
 
-        return _names.Count - 1;
+        var index = _names.Count - 1;
+        _index[name] = index;
+
+        return index;
     }
 
     /// <summary>序列化为 UE 格式。hashes 由 CityHash64(ASCII 小写的名字) 计算。</summary>

@@ -32,6 +32,10 @@ public sealed class TagStore
 
     private readonly List<uint> _ansiOffsets = new();
     private byte[] _ansiStrings = [];
+
+    /// <summary>待追加的 AnsiString。攒着一起写，避免每次 Add 都整块复制（O(n²)）。</summary>
+    private readonly List<byte[]> _pendingAnsi = new();
+    private int _ansiTotalLen;
     private readonly List<(uint Key, uint Value)> _pairs = new();
 
     public static TagStore Parse(byte[] file, int storeStart, int storeEnd)
@@ -67,6 +71,7 @@ public sealed class TagStore
 
         store._wideOffsets = file.AsSpan(s, nums[6] * 4).ToArray(); s += nums[6] * 4;
         store._ansiStrings = file.AsSpan(s, nums[7]).ToArray(); s += nums[7];
+        store._ansiTotalLen = store._ansiStrings.Length;
         store._wideStrings = file.AsSpan(s, nums[8] * 2).ToArray(); s += nums[8] * 2;
 
         store._numberlessPairs = Walk(file, ref s, nums[9], 1, 4);
@@ -119,12 +124,9 @@ public sealed class TagStore
     {
         var raw = System.Text.Encoding.ASCII.GetBytes(value);
 
-        var newBlob = new byte[_ansiStrings.Length + raw.Length + 1];
-        _ansiStrings.CopyTo(newBlob, 0);
-        raw.CopyTo(newBlob, _ansiStrings.Length);
-
-        _ansiOffsets.Add((uint)_ansiStrings.Length);
-        _ansiStrings = newBlob;
+        _ansiOffsets.Add((uint)_ansiTotalLen);
+        _ansiTotalLen += raw.Length + 1;
+        _pendingAnsi.Add(raw);
 
         return (uint)(_ansiOffsets.Count - 1);
     }
@@ -146,7 +148,7 @@ public sealed class TagStore
 
         var nums = (int[])_nums.Clone();
         nums[5] = _ansiOffsets.Count;
-        nums[7] = _ansiStrings.Length;
+        nums[7] = _ansiTotalLen;
         nums[10] = _pairs.Count;
 
         foreach (var n in nums)
@@ -169,6 +171,12 @@ public sealed class TagStore
 
         w.Write(_wideOffsets);
         w.Write(_ansiStrings);
+        foreach (var raw in _pendingAnsi)
+        {
+            w.Write(raw);
+            w.Write((byte)0);
+        }
+
         w.Write(_wideStrings);
         w.Write(_numberlessPairs);
 
