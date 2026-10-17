@@ -21,10 +21,18 @@ else
             <h1 class="solstice-h1">Bin 修改</h1>
             <span class="solstice-spacer"></span>
             <FlareButton Variant="ButtonVariant.Outlined" OnClick="Reset">换个文件</FlareButton>
-            <FlareButton Variant="ButtonVariant.Filled" OnClick="@(() => _addOpen = true)">
-                新增卡牌条目
+            <FlareButton Variant="ButtonVariant.Outlined" OnClick="Export" Disabled="@(_doc is null)">
+                导出 bin
+            </FlareButton>
+            <FlareButton Variant="ButtonVariant.Filled" OnClick="@(() => _addOpen = true)" Disabled="@(_doc is null)">
+                新增卡牌
             </FlareButton>
         </div>
+
+        @if (_message is not null)
+        {
+            <div class="solstice-alert-ok">@_message</div>
+        }
 
         @if (_error is not null)
         {
@@ -33,86 +41,81 @@ else
 
         <FlareCard>
             <div class="solstice-kv">
-                <div class="solstice-k">文件名</div>
-                <div><code>@_fileName</code></div>
-
-                <div class="solstice-k">大小</div>
-                <div>@FormatSize(_size)</div>
+                <div class="solstice-k">文件</div>
+                <div><code>@_fileName</code> <span class="solstice-muted">@FormatSize(_size)</span></div>
 
                 <div class="solstice-k">SHA-256</div>
                 <div class="solstice-break"><code>@_sha256</code></div>
-            </div>
-        </FlareCard>
 
-        @if (_header is not null)
-        {
-            <FlareCard Style="margin-top:16px">
-                @if (_header.GuidMatches)
+                @if (_header is not null)
                 {
-                    <div class="solstice-ok">✓ 文件标识匹配 UE 的 AssetRegistry 现代格式</div>
-                }
-                else
-                {
-                    <div class="solstice-bad">✗ 文件标识不匹配，可能不是 AssetRegistry.bin，或是更老的格式</div>
-                }
-
-                <div class="solstice-kv">
-                    <div class="solstice-k">GUID</div>
-                    <div><code>@_header.GuidHex</code></div>
-
-                    <div class="solstice-k">version</div>
+                    <div class="solstice-k">格式</div>
                     <div>
-                        <code>@_header.Version</code>
-                        @if (_header.Version == 21)
+                        version <code>@_header.Version</code>
+                        @if (_header.GuidMatches)
                         {
-                            <span class="solstice-chip">与 KARDS 实测样本一致</span>
-                        }
-                    </div>
-
-                    <div class="solstice-k">bFilterEditorOnly</div>
-                    <div><code>@_header.FilterEditorOnly</code></div>
-
-                    <div class="solstice-k">资产数量</div>
-                    <div>
-                        @if (_parseError is not null)
-                        {
-                            <span class="solstice-bad" style="margin:0">解析失败：@_parseError</span>
+                            <span class="solstice-chip">标识匹配</span>
                         }
                         else
                         {
-                            <strong>@_assetCount</strong>
-                            <span class="solstice-muted">· 全量解析 @_parseMs ms</span>
+                            <span class="solstice-chip solstice-chip-bad">标识不匹配</span>
                         }
                     </div>
-                </div>
+                }
 
-                <div class="solstice-note">
-                    资产数量由 submodule 里的 UAssetRegistry 在<strong>浏览器内</strong>解析得出，未上传任何数据。
-                    资产列表、编辑与写回仍未接入。
+                <div class="solstice-k">资产总数</div>
+                <div>
+                    <strong>@_total</strong>
+                    <span class="solstice-muted">· 解析 @_parseMs ms</span>
+                    @if (_addedCount > 0)
+                    {
+                        <span class="solstice-chip">本次新增 @_addedCount</span>
+                    }
                 </div>
-            </FlareCard>
-        }
+            </div>
+        </FlareCard>
 
         <FlareCard Style="margin-top:16px">
-            <div class="solstice-card-title">样本事实</div>
-            <div class="solstice-kv">
-                <div class="solstice-k">AssetRegistry.bin</div>
-                <div>6.2 MB · version 21 · bFilterEditorOnly = 1</div>
-
-                <div class="solstice-k">Blueprints</div>
-                <div>2137 个 <code>.uasset</code> + 2137 个 <code>.uexp</code> · 24.5 MB</div>
-
-                <div class="solstice-k">卡牌资产</div>
-                <div>2019 个：<code>card_unit</code> 1023、<code>card_event</code> 785、<code>card_location</code> 179、<code>card_wildcard</code> 24</div>
+            <div class="solstice-toolbar">
+                <FlareTextField Label="搜索 ObjectPath / 类名" @bind-Value="_search" />
+                <span class="solstice-spacer"></span>
+                <span class="solstice-muted">
+                    匹配 @_matchCount 条 · 显示前 @DisplayLimit 条
+                </span>
             </div>
+
+            <div class="solstice-grid-wrap">
+                <table class="solstice-grid">
+                    <thead>
+                        <tr>
+                            <th>ObjectPath</th>
+                            <th style="width:180px">AssetClass</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in _visible)
+                        {
+                            <tr>
+                                <td><code>@e.ObjectPath</code></td>
+                                <td>@e.AssetClass</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (_matchCount > DisplayLimit)
+            {
+                <div class="solstice-note">还有 @(_matchCount - DisplayLimit) 条未显示，用搜索缩小范围。</div>
+            }
         </FlareCard>
     </div>
 }
 
-<FlareDialog @bind-Visible="_addOpen" Title="新增卡牌条目">
+<FlareDialog @bind-Visible="_addOpen" Title="新增卡牌">
     <ChildContent>
         <p class="solstice-muted" style="margin-top:0">
-            首期只支持添加卡牌资产，命名规律 <code>card_&lt;类型&gt;_&lt;slug&gt;</code>。
+            命名规律 <code>card_&lt;类型&gt;_&lt;slug&gt;</code>，会立刻出现在列表里。
         </p>
 
         <div class="solstice-form">
@@ -128,43 +131,21 @@ else
             <div><span class="solstice-k">ObjectPath</span><code>@PreviewObjectPath</code></div>
         </div>
 
-        <div class="solstice-note">
-            PackagePath 由导出目录映射为 <code>/Game/Blueprints/…</code> <strong>推断</strong>而来，尚未用真实样本实测确认。
-        </div>
+        @if (_addError is not null)
+        {
+            <div class="solstice-alert-error" style="margin-top:12px">@_addError</div>
+        }
     </ChildContent>
 
     <ActionsContent>
         <FlareButton Variant="ButtonVariant.Text" OnClick="@(() => _addOpen = false)">取消</FlareButton>
-        <FlareButton Variant="ButtonVariant.Filled" OnClick="RequestWrite">下一步</FlareButton>
-    </ActionsContent>
-</FlareDialog>
-
-<FlareDialog @bind-Visible="_confirmOpen" Title="确认写入">
-    <ChildContent>
-        <div class="solstice-kv">
-            <div class="solstice-k">新增</div><div>@_pendingAdd</div>
-            <div class="solstice-k">修改</div><div>0</div>
-            <div class="solstice-k">删除</div><div>0</div>
-        </div>
-
-        <div class="solstice-preview" style="margin-top:12px">
-            <div><span class="solstice-k">ObjectPath</span><code>@PreviewObjectPath</code></div>
-        </div>
-
-        <div class="solstice-note">
-            <strong>写入尚未实现。</strong>接入解析器后，这里会写出新文件并读回校验；
-            输出字节与原文件不同，不会覆盖输入。
-        </div>
-    </ChildContent>
-
-    <ActionsContent>
-        <FlareButton Variant="ButtonVariant.Text" OnClick="@(() => _confirmOpen = false)">取消</FlareButton>
-        <FlareButton Variant="ButtonVariant.Filled" Disabled="true">写入（未实现）</FlareButton>
+        <FlareButton Variant="ButtonVariant.Filled" OnClick="ConfirmAdd">添加</FlareButton>
     </ActionsContent>
 </FlareDialog>
 
 @code {
     private const long MaxBytes = 64L * 1024 * 1024;
+    private const int DisplayLimit = 200;
 
     private static readonly string[] Nations =
     [
@@ -182,13 +163,20 @@ else
     private string? _sha256;
     private AssetRegistryHeader? _header;
     private string? _error;
-    private int _assetCount;
+    private string? _message;
     private long _parseMs;
-    private string? _parseError;
+
+    private AssetRegistryDocument? _doc;
+    private AssetEntry[] _entries = [];
+    private int _total;
+    private int _addedCount;
+
+    private string _search = "";
+    private int _matchCount;
+    private IReadOnlyList<AssetEntry> _visible = [];
 
     private bool _addOpen;
-    private bool _confirmOpen;
-    private int _pendingAdd;
+    private string? _addError;
 
     private string _nation = "USA";
     private string _set = "Base";
@@ -231,26 +219,44 @@ else
 
     private string PreviewObjectPath => $"{PreviewPackagePath}/{PreviewAssetName}.{PreviewAssetName}";
 
-    private void RequestWrite()
+    private void RefreshView()
     {
-        _pendingAdd = 1;
-        _addOpen = false;
-        _confirmOpen = true;
+        var query = _search?.Trim() ?? "";
+        IEnumerable<AssetEntry> filtered = _entries;
+
+        if (query.Length > 0)
+        {
+            filtered = _entries.Where(e =>
+                e.ObjectPath.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.AssetClass.Contains(query, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var matches = filtered as IReadOnlyCollection<AssetEntry> ?? filtered.ToArray();
+        _matchCount = matches.Count;
+        _visible = matches.Take(DisplayLimit).ToArray();
     }
 
     private void Reset()
     {
         _loaded = false;
+        _doc = null;
+        _entries = [];
+        _visible = [];
         _fileName = null;
         _sha256 = null;
         _header = null;
         _error = null;
+        _message = null;
+        _search = "";
+        _addedCount = 0;
+        _total = 0;
         _size = 0;
     }
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
         _error = null;
+        _message = null;
         _header = null;
 
         var file = e.File;
@@ -274,33 +280,85 @@ else
             _sha256 = FileFingerprint.Sha256(bytes);
             _loaded = true;
 
-            if (!AssetRegistryHeaderReader.TryRead(bytes, out var header, out var error))
-            {
-                _error = error;
-                return;
-            }
-
+            AssetRegistryHeaderReader.TryRead(bytes, out var header, out _);
             _header = header;
 
-            // Phase 0 探针：在浏览器内跑一遍既有库的完整解析，证明它能在 WASM 下工作。
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            if (AssetRegistryProbe.TryCountAssets(bytes, out var count, out var parseError))
-            {
-                _assetCount = count;
-            }
-            else
-            {
-                _parseError = parseError;
-            }
+            _doc = AssetRegistryDocument.Load(bytes);
+            _entries = _doc.GetEntries().ToArray();
             sw.Stop();
             _parseMs = sw.ElapsedMilliseconds;
+
+            _total = _entries.Length;
+            _addedCount = 0;
+            RefreshView();
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            _error = ex.GetType().Name + ": " + ex.Message;
             _loaded = true;
         }
     }
+
+    private void ConfirmAdd()
+    {
+        _addError = null;
+
+        if (string.IsNullOrWhiteSpace(_slug))
+        {
+            _addError = "卡牌名不能为空。";
+            return;
+        }
+
+        if (_doc is null)
+        {
+            _addError = "尚未载入文件。";
+            return;
+        }
+
+        var packagePath = PreviewPackagePath;
+        var assetName = PreviewAssetName;
+
+        var added = _doc.AddAsset(packagePath, assetName, _assetClassForCard);
+        if (!added)
+        {
+            _addError = $"已存在同名资产：{assetName}";
+            return;
+        }
+
+        _entries = _doc.GetEntries().ToArray();
+        _total = _entries.Length;
+        _addedCount++;
+        _search = assetName;
+        RefreshView();
+
+        _addOpen = false;
+        _message = $"已添加 {assetName}（共 {_total} 条）。记得导出——本次改动只在内存里。";
+    }
+
+    private async Task Export()
+    {
+        if (_doc is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var bytes = _doc.Save();
+            var name = (_fileName ?? "AssetRegistry.bin").Replace(".bin", "") + ".edited.bin";
+            await JS.InvokeVoidAsync("solsticeDownload", name, Convert.ToBase64String(bytes));
+            _message = $"已导出 {name}（{FormatSize(bytes.LongLength)}）。写回是语义级的，字节与原文件不同。";
+        }
+        catch (Exception ex)
+        {
+            _error = "导出失败：" + ex.Message;
+        }
+    }
+
+    // 卡牌资产的 AssetClass 尚未用真实样本核对，先按 Blueprint 处理，
+    // 并在 UI 与文档里标注为待确认。
+    private const string _assetClassForCard = "Blueprint";
 
     private static string FormatSize(long bytes) => bytes switch
     {

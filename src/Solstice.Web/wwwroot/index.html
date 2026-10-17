@@ -17,12 +17,12 @@
 
     <!--
         字体：MiSans（中文正文）+ JetBrains Mono（代码）。
-        MiSans 走 npmmirror —— cdn.jsdelivr.net 在本机与国内网络均不可达，unpkg 可用但国内慢。
-        JetBrains Mono 走 Google Fonts。
+        MiSans 上游只提供分片 woff2、没有 TTF，只能走 npmmirror 的 CSS
+        （cdn.jsdelivr.net 在本机与国内网络均不可达）。
+        JetBrains Mono 已下载为本地 TTF，见下方 @font-face，不依赖外部 CDN。
         两者都只是显示层，加载失败会退回系统字体，不影响功能。
     -->
     <link rel="stylesheet" href="https://registry.npmmirror.com/misans/5.0.0/files/lib/Normal/MiSansVF.min.css" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" />
 
     <link rel="icon" type="image/png" href="favicon.png" />
     <script type="importmap"></script>
@@ -30,6 +30,29 @@
     <style>
         html { background: #fffbfe; }
         html.flare-mode-dark { background: #141218; }
+
+        /* JetBrains Mono 自托管：三档字重，共约 336 KB，不依赖外部字体 CDN */
+        @font-face {
+            font-family: "JetBrains Mono";
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url("fonts/JetBrainsMono-400.ttf") format("truetype");
+        }
+        @font-face {
+            font-family: "JetBrains Mono";
+            font-style: normal;
+            font-weight: 500;
+            font-display: swap;
+            src: url("fonts/JetBrainsMono-500.ttf") format("truetype");
+        }
+        @font-face {
+            font-family: "JetBrains Mono";
+            font-style: normal;
+            font-weight: 700;
+            font-display: swap;
+            src: url("fonts/JetBrainsMono-700.ttf") format("truetype");
+        }
 
         /*
             覆盖 Flare 的字号令牌默认字体（原本是 Roboto）。
@@ -255,6 +278,52 @@
             color: var(--flare-color-on-surface);
         }
 
+        /* ---------- 列表 ---------- */
+        .solstice-toolbar {
+            display: flex; align-items: flex-end; gap: 12px;
+            margin-bottom: 14px;
+        }
+        .solstice-toolbar > :first-child { min-width: 320px; }
+        .solstice-grid-wrap {
+            max-height: 52vh;
+            overflow: auto;
+            border: 1px solid var(--flare-color-outline-variant);
+            border-radius: var(--flare-shape-medium);
+        }
+        .solstice-grid {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .solstice-grid thead th {
+            position: sticky; top: 0; z-index: 1;
+            text-align: left;
+            padding: 10px 12px;
+            background: var(--flare-color-surface-container-high);
+            color: var(--flare-color-on-surface-variant);
+            font-weight: 500;
+            font-size: 12px;
+        }
+        .solstice-grid tbody td {
+            padding: 8px 12px;
+            border-top: 1px solid var(--flare-color-outline-variant);
+            color: var(--flare-color-on-surface);
+        }
+        .solstice-grid tbody tr:hover {
+            background: var(--flare-color-surface-container-low);
+        }
+        .solstice-alert-ok {
+            padding: 12px 16px; margin-bottom: 16px;
+            border-radius: var(--flare-shape-medium);
+            background: var(--flare-color-success-container);
+            color: var(--flare-color-on-success-container);
+            font-size: 14px;
+        }
+        .solstice-chip-bad {
+            background: var(--flare-color-error-container);
+            color: var(--flare-color-on-error-container);
+        }
+
         /* ---------- 错误条 ---------- */
         #blazor-error-ui {
             display: none; position: fixed; bottom: 0; left: 0; right: 0;
@@ -277,6 +346,7 @@
         <span class="dismiss">🗙</span>
     </div>
     <script src="js/dropzone.js"></script>
+    <script src="js/download.js"></script>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
 </body>
 
