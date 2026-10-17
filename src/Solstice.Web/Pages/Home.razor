@@ -1,138 +1,153 @@
 @page "/"
 @using Solstice.Core.AssetRegistry
 @using Solstice.Core.IO
+@inject IJSRuntime JS
 
-<PageTitle>Solstice · AssetRegistry 工作台</PageTitle>
+<PageTitle>Solstice · Bin 修改</PageTitle>
 
-<FlareCard Style="margin-bottom:16px">
-    <FlareText Typo="TypographyScale.TitleMedium">1 · 载入文件</FlareText>
-    <p style="margin:8px 0 12px; opacity:.75; font-size:14px;">
-        原型阶段（Phase 1）：当前只读出固定头部并计算 SHA-256。资产列表、新增条目与写回<strong>尚未接入</strong>。
-    </p>
-    <InputFile OnChange="OnFileSelected" />
-    <div style="margin-top:8px; font-size:12px; opacity:.7;">
-        选择一个 <code>AssetRegistry.bin</code>，上限 @(MaxBytes / 1024 / 1024) MB。文件只在浏览器内处理，不会上传。
-    </div>
-</FlareCard>
-
-@if (_error is not null)
+@if (!_loaded)
 {
-    <div style="background:#ffdad6; color:#410002; padding:12px 16px; border-radius:12px; margin-bottom:16px;">
-        <strong>读取失败：</strong>@_error
+    <div class="solstice-drop" @ref="_zoneRef">
+        <div class="solstice-drop-glyph">⇩</div>
+        <div class="solstice-drop-title">拖入 AssetRegistry.bin</div>
+        <div class="solstice-muted">或点击选择文件 · 上限 @(MaxBytes / 1024 / 1024) MB · 只在浏览器内处理</div>
+        <InputFile OnChange="OnFileSelected" class="solstice-drop-input" />
     </div>
 }
-
-@if (_fileName is not null)
+else
 {
-    <FlareCard Style="margin-bottom:16px">
-        <FlareText Typo="TypographyScale.TitleMedium">2 · 文件事实</FlareText>
-        <dl style="display:grid; grid-template-columns:120px 1fr; gap:8px 16px; margin:12px 0 0; font-size:14px;">
-            <dt style="opacity:.7;">文件名</dt>
-            <dd style="margin:0;"><code>@_fileName</code></dd>
-
-            <dt style="opacity:.7;">大小</dt>
-            <dd style="margin:0;">@FormatSize(_size)</dd>
-
-            <dt style="opacity:.7;">SHA-256</dt>
-            <dd style="margin:0; word-break:break-all;"><code>@_sha256</code></dd>
-        </dl>
-    </FlareCard>
-}
-
-@if (_header is not null)
-{
-    <FlareCard Style="margin-bottom:16px">
-        <FlareText Typo="TypographyScale.TitleMedium">3 · 头部解析</FlareText>
-
-        @if (_header.GuidMatches)
-        {
-            <p style="color:#146c2e; margin:12px 0 8px; font-size:14px;">
-                ✓ 文件标识匹配 UE 的 AssetRegistry 现代格式。
-            </p>
-        }
-        else
-        {
-            <p style="color:#8c1d18; margin:12px 0 8px; font-size:14px;">
-                ✗ 文件标识不匹配。这可能不是 AssetRegistry.bin，或是更老的格式——本读取器不覆盖老格式，也不会假装读懂了它。
-            </p>
-        }
-
-        <dl style="display:grid; grid-template-columns:160px 1fr; gap:8px 16px; margin:0; font-size:14px;">
-            <dt style="opacity:.7;">GUID</dt>
-            <dd style="margin:0;"><code>@_header.GuidHex</code></dd>
-
-            <dt style="opacity:.7;">version</dt>
-            <dd style="margin:0;">
-                <code>@_header.Version</code>
-                @if (_header.Version == 21)
-                {
-                    <span style="margin-left:8px; padding:2px 8px; border-radius:999px; background:#c4eed0; color:#072711; font-size:12px;">
-                        与 KARDS 实测样本一致
-                    </span>
-                }
-            </dd>
-
-            <dt style="opacity:.7;">bFilterEditorOnly</dt>
-            <dd style="margin:0;"><code>@_header.FilterEditorOnly</code></dd>
-        </dl>
-
-        <p style="margin:12px 0 0; font-size:12px; opacity:.7;">
-            资产数组、name 表、FStore 与依赖节点<strong>尚未解析</strong>——要等既有库移植进 WASM 并通过验证（路线图 Phase 0）。
-        </p>
-    </FlareCard>
-}
-
-<FlareCard Style="margin-bottom:16px">
-    <FlareText Typo="TypographyScale.TitleMedium">4 · 新增卡牌条目</FlareText>
-    <p style="margin:8px 0 12px; font-size:13px; opacity:.75;">
-        <strong>尚未实现</strong>：下面的表单只收集字段并预览将要生成的条目，不会写入任何文件。
-    </p>
-
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;">
-        <FlareSelect Label="国家" @bind-Value="_nation" Items="Nations" />
-        <FlareTextField Label="系列" @bind-Value="_set" />
-        <FlareSelect Label="类型" @bind-Value="_kind" Items="Kinds" />
-        <FlareTextField Label="卡牌名（不含前缀）" @bind-Value="_slug" />
-    </div>
-
-    <div style="margin-top:16px; padding:12px; border-radius:12px; background:rgba(128,128,128,.10); font-size:13px;">
-        <div><strong>资产名：</strong><code>@PreviewAssetName</code></div>
-        <div><strong>PackagePath：</strong><code>@PreviewPackagePath</code></div>
-        <div><strong>ObjectPath：</strong><code>@PreviewObjectPath</code></div>
-        <div style="opacity:.65; margin-top:8px;">
-            PackagePath 由导出目录 <code>Content/Blueprints/…</code> 映射为 <code>/Game/Blueprints/…</code> <strong>推断</strong>而来，
-            尚未用真实样本实测确认；AssetClass 同样待确认。
+    <div class="solstice-page">
+        <div class="solstice-head">
+            <h1 class="solstice-h1">Bin 修改</h1>
+            <span class="solstice-spacer"></span>
+            <FlareButton Variant="ButtonVariant.Outlined" OnClick="Reset">换个文件</FlareButton>
+            <FlareButton Variant="ButtonVariant.Filled" OnClick="@(() => _addOpen = true)">
+                新增卡牌条目
+            </FlareButton>
         </div>
-    </div>
 
-    <div style="margin-top:16px;">
-        <FlareButton Variant="ButtonVariant.Filled" Disabled="true">写入注册表（未实现）</FlareButton>
-    </div>
-</FlareCard>
+        @if (_error is not null)
+        {
+            <div class="solstice-alert-error"><strong>读取失败：</strong>@_error</div>
+        }
 
-<FlareCard>
-    <FlareText Typo="TypographyScale.TitleMedium">5 · 样本事实（来自实测，不是假设）</FlareText>
-    <table style="width:100%; margin-top:12px; border-collapse:collapse; font-size:14px;">
-        <tbody>
-            <tr>
-                <td style="padding:8px 0; width:180px; opacity:.7;">AssetRegistry.bin</td>
-                <td style="padding:8px 0;">6.2 MB，version 21，bFilterEditorOnly = 1</td>
-            </tr>
-            <tr>
-                <td style="padding:8px 0; opacity:.7;">Blueprints 导出集</td>
-                <td style="padding:8px 0;">2137 个 <code>.uasset</code> + 2137 个 <code>.uexp</code>，共 24.5 MB</td>
-            </tr>
-            <tr>
-                <td style="padding:8px 0; opacity:.7;">卡牌资产</td>
-                <td style="padding:8px 0;">2019 个：<code>card_unit</code> 1023、<code>card_event</code> 785、<code>card_location</code> 179、<code>card_wildcard</code> 24</td>
-            </tr>
-            <tr>
-                <td style="padding:8px 0; opacity:.7;">卡牌目录结构</td>
-                <td style="padding:8px 0;"><code>Cards/&lt;国家&gt;/&lt;系列&gt;/&lt;类型&gt;/card_*.uasset</code></td>
-            </tr>
-        </tbody>
-    </table>
-</FlareCard>
+        <FlareCard>
+            <div class="solstice-kv">
+                <div class="solstice-k">文件名</div>
+                <div><code>@_fileName</code></div>
+
+                <div class="solstice-k">大小</div>
+                <div>@FormatSize(_size)</div>
+
+                <div class="solstice-k">SHA-256</div>
+                <div class="solstice-break"><code>@_sha256</code></div>
+            </div>
+        </FlareCard>
+
+        @if (_header is not null)
+        {
+            <FlareCard Style="margin-top:16px">
+                @if (_header.GuidMatches)
+                {
+                    <div class="solstice-ok">✓ 文件标识匹配 UE 的 AssetRegistry 现代格式</div>
+                }
+                else
+                {
+                    <div class="solstice-bad">✗ 文件标识不匹配，可能不是 AssetRegistry.bin，或是更老的格式</div>
+                }
+
+                <div class="solstice-kv">
+                    <div class="solstice-k">GUID</div>
+                    <div><code>@_header.GuidHex</code></div>
+
+                    <div class="solstice-k">version</div>
+                    <div>
+                        <code>@_header.Version</code>
+                        @if (_header.Version == 21)
+                        {
+                            <span class="solstice-chip">与 KARDS 实测样本一致</span>
+                        }
+                    </div>
+
+                    <div class="solstice-k">bFilterEditorOnly</div>
+                    <div><code>@_header.FilterEditorOnly</code></div>
+                </div>
+
+                <div class="solstice-note">
+                    资产数组、name 表、FStore 与依赖节点<strong>尚未解析</strong>——要等既有库移植进 WASM（路线图 Phase 0）。
+                </div>
+            </FlareCard>
+        }
+
+        <FlareCard Style="margin-top:16px">
+            <div class="solstice-card-title">样本事实</div>
+            <div class="solstice-kv">
+                <div class="solstice-k">AssetRegistry.bin</div>
+                <div>6.2 MB · version 21 · bFilterEditorOnly = 1</div>
+
+                <div class="solstice-k">Blueprints</div>
+                <div>2137 个 <code>.uasset</code> + 2137 个 <code>.uexp</code> · 24.5 MB</div>
+
+                <div class="solstice-k">卡牌资产</div>
+                <div>2019 个：<code>card_unit</code> 1023、<code>card_event</code> 785、<code>card_location</code> 179、<code>card_wildcard</code> 24</div>
+            </div>
+        </FlareCard>
+    </div>
+}
+
+<FlareDialog @bind-Visible="_addOpen" Title="新增卡牌条目">
+    <ChildContent>
+        <p class="solstice-muted" style="margin-top:0">
+            首期只支持添加卡牌资产，命名规律 <code>card_&lt;类型&gt;_&lt;slug&gt;</code>。
+        </p>
+
+        <div class="solstice-form">
+            <FlareSelect Label="国家" @bind-Value="_nation" Items="Nations" />
+            <FlareTextField Label="系列" @bind-Value="_set" />
+            <FlareSelect Label="类型" @bind-Value="_kind" Items="Kinds" />
+            <FlareTextField Label="卡牌名（不含前缀）" @bind-Value="_slug" />
+        </div>
+
+        <div class="solstice-preview">
+            <div><span class="solstice-k">资产名</span><code>@PreviewAssetName</code></div>
+            <div><span class="solstice-k">PackagePath</span><code>@PreviewPackagePath</code></div>
+            <div><span class="solstice-k">ObjectPath</span><code>@PreviewObjectPath</code></div>
+        </div>
+
+        <div class="solstice-note">
+            PackagePath 由导出目录映射为 <code>/Game/Blueprints/…</code> <strong>推断</strong>而来，尚未用真实样本实测确认。
+        </div>
+    </ChildContent>
+
+    <ActionsContent>
+        <FlareButton Variant="ButtonVariant.Text" OnClick="@(() => _addOpen = false)">取消</FlareButton>
+        <FlareButton Variant="ButtonVariant.Filled" OnClick="RequestWrite">下一步</FlareButton>
+    </ActionsContent>
+</FlareDialog>
+
+<FlareDialog @bind-Visible="_confirmOpen" Title="确认写入">
+    <ChildContent>
+        <div class="solstice-kv">
+            <div class="solstice-k">新增</div><div>@_pendingAdd</div>
+            <div class="solstice-k">修改</div><div>0</div>
+            <div class="solstice-k">删除</div><div>0</div>
+        </div>
+
+        <div class="solstice-preview" style="margin-top:12px">
+            <div><span class="solstice-k">ObjectPath</span><code>@PreviewObjectPath</code></div>
+        </div>
+
+        <div class="solstice-note">
+            <strong>写入尚未实现。</strong>接入解析器后，这里会写出新文件并读回校验；
+            输出字节与原文件不同，不会覆盖输入。
+        </div>
+    </ChildContent>
+
+    <ActionsContent>
+        <FlareButton Variant="ButtonVariant.Text" OnClick="@(() => _confirmOpen = false)">取消</FlareButton>
+        <FlareButton Variant="ButtonVariant.Filled" Disabled="true">写入（未实现）</FlareButton>
+    </ActionsContent>
+</FlareDialog>
 
 @code {
     private const long MaxBytes = 64L * 1024 * 1024;
@@ -145,16 +160,31 @@
 
     private static readonly string[] Kinds = ["events", "units", "locations", "specialCards"];
 
+    private ElementReference _zoneRef;
+    private bool _loaded;
+
     private string? _fileName;
     private long _size;
     private string? _sha256;
     private AssetRegistryHeader? _header;
     private string? _error;
 
+    private bool _addOpen;
+    private bool _confirmOpen;
+    private int _pendingAdd;
+
     private string _nation = "USA";
     private string _set = "Base";
     private string _kind = "units";
     private string _slug = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_loaded)
+        {
+            await JS.InvokeVoidAsync("solsticeDrop.attach", _zoneRef);
+        }
+    }
 
     private static string KindPrefix(string kind) => kind switch
     {
@@ -184,11 +214,26 @@
 
     private string PreviewObjectPath => $"{PreviewPackagePath}/{PreviewAssetName}.{PreviewAssetName}";
 
+    private void RequestWrite()
+    {
+        _pendingAdd = 1;
+        _addOpen = false;
+        _confirmOpen = true;
+    }
+
+    private void Reset()
+    {
+        _loaded = false;
+        _fileName = null;
+        _sha256 = null;
+        _header = null;
+        _error = null;
+        _size = 0;
+    }
+
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
         _error = null;
-        _fileName = null;
-        _sha256 = null;
         _header = null;
 
         var file = e.File;
@@ -210,6 +255,7 @@
             _fileName = file.Name;
             _size = bytes.LongLength;
             _sha256 = FileFingerprint.Sha256(bytes);
+            _loaded = true;
 
             if (!AssetRegistryHeaderReader.TryRead(bytes, out var header, out var error))
             {
@@ -222,6 +268,7 @@
         catch (Exception ex)
         {
             _error = ex.Message;
+            _loaded = true;
         }
     }
 

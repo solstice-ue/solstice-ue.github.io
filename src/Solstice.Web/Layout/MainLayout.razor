@@ -1,12 +1,48 @@
 @inherits LayoutComponentBase
+@inject IThemeService ThemeService
 
-<div style="max-width: 1040px; margin: 0 auto; padding: 28px 20px 64px;">
-    <header style="margin-bottom: 24px;">
-        <FlareText Typo="TypographyScale.HeadlineMedium">Solstice</FlareText>
-        <FlareText Typo="TypographyScale.BodySmall">
-            KARDS · UE 5.6.1 · AssetRegistry 工作台
-        </FlareText>
-    </header>
+<FlareLayout>
+    <FlareLayoutAppBar>
+        <div class="solstice-bar">
+            <span class="solstice-brand">Solstice</span>
+            <span class="solstice-sub">KARDS · UE 5.6.1</span>
+            <span class="solstice-spacer"></span>
+            <span class="solstice-hint">调色板</span>
+            @foreach (var p in PaletteChoices)
+            {
+                <FlareButton Variant="ButtonVariant.Text"
+                             OnClick="@(() => ThemeService.SetPaletteAsync(p.Id))">
+                    @p.Name
+                </FlareButton>
+            }
+        </div>
+    </FlareLayoutAppBar>
 
-    @Body
-</div>
+    <FlareLayoutDrawer Variant="DrawerVariant.Permanent" Width="15rem">
+        <nav class="solstice-nav">
+            <a href="" class="solstice-nav-item">Bin 修改</a>
+            <a href="assets" class="solstice-nav-item">资产浏览</a>
+            <a href="bytecode" class="solstice-nav-item">字节码查看</a>
+        </nav>
+        <div class="solstice-nav-foot">
+            <div>原型阶段 · Phase 1</div>
+            <div>解析能力尚未接入</div>
+        </div>
+    </FlareLayoutDrawer>
+
+    <FlareLayoutContent>
+        @Body
+    </FlareLayoutContent>
+</FlareLayout>
+
+@code {
+    // Flare 的 MD3 主题自带这五套调色板；Id 用常量，避免魔法字符串。
+    private static readonly (string Id, string Name)[] PaletteChoices =
+    [
+        (Md3Palettes.VioletId, "紫"),
+        (Md3Palettes.BlueId, "蓝"),
+        (Md3Palettes.GreenId, "绿"),
+        (Md3Palettes.TealId, "青"),
+        (Md3Palettes.OrangeId, "橙")
+    ];
+}
