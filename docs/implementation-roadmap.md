@@ -59,7 +59,7 @@
 **目标：往注册表里加一条，导出，再读回。**
 
 任务：
-- 「添加新项」**表单**。首期唯一用途是添加**卡牌资产**（命名形如 `card_xx_xx`），因此表单应预填 `PackagePath` 前缀与 `AssetClass`，用户只填卡牌名与必要的 Tags。
+- 「添加新项」**表单**。首期唯一用途是添加**卡牌资产**，命名规律为 `card_<类型>_<slug>`（如 `card_unit_16th_infantry_brigade_vet`、`card_event_aans`），目录为 `Cards/<国家>/<系列>/<类型>/`。表单按「国家 / 系列 / 类型 / 名字」四段收集，并实时预览完整 `ObjectPath`。
 - 卡牌资产的 `AssetClass` 与 `PackagePath` 前缀**需先实测确认**，不得凭印象写死。
 - 写回前显示**新增 / 修改 / 删除**清单。
 - 导出 bin，并用 **CUE4Parse** 与 **UAssetRegistry** 两个独立实现分别读回比对。

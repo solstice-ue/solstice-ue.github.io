@@ -99,33 +99,46 @@
     <div class="card-body">
         <h2 class="h5">4 · 新增卡牌条目</h2>
         <p class="text-muted small">
-            首期唯一用途是添加卡牌资产（命名形如 <code>card_xx_xx</code>）。
-            <strong>尚未实现</strong>：下面的表单只收集字段并预览将要生成的条目，
-            不会写入任何文件。
+            <strong>尚未实现</strong>：下面的表单只收集字段并预览将要生成的条目，不会写入任何文件。
         </p>
 
         <div class="row g-2 mb-2">
-            <div class="col-md-4">
-                <label class="form-label" for="cardName">卡牌 ID</label>
-                <input id="cardName" class="form-control" placeholder="card_01_23"
-                       @bind="_cardName" @bind:event="oninput" />
+            <div class="col-md-3">
+                <label class="form-label" for="nation">国家</label>
+                <select id="nation" class="form-select" @bind="_nation">
+                    @foreach (var n in Nations)
+                    {
+                        <option value="@n">@n</option>
+                    }
+                </select>
             </div>
-            <div class="col-md-4">
-                <label class="form-label" for="cardClass">AssetClass</label>
-                <input id="cardClass" class="form-control" placeholder="待实测确认"
-                       @bind="_cardClass" @bind:event="oninput" />
+            <div class="col-md-3">
+                <label class="form-label" for="set">系列</label>
+                <input id="set" class="form-control" placeholder="Base" @bind="_set" @bind:event="oninput" />
             </div>
-            <div class="col-md-4">
-                <label class="form-label" for="cardPath">PackagePath 前缀</label>
-                <input id="cardPath" class="form-control" placeholder="/Game/..."
-                       @bind="_cardPath" @bind:event="oninput" />
+            <div class="col-md-3">
+                <label class="form-label" for="kind">类型</label>
+                <select id="kind" class="form-select" @bind="_kind">
+                    @foreach (var k in Kinds)
+                    {
+                        <option value="@k">@k</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="slug">卡牌名（不含前缀）</label>
+                <input id="slug" class="form-control" placeholder="16th_infantry_brigade_vet"
+                       @bind="_slug" @bind:event="oninput" />
             </div>
         </div>
 
         <div class="border rounded p-2 bg-light small">
-            <div><strong>ObjectPath 预览：</strong><code>@PreviewObjectPath</code></div>
+            <div><strong>资产名：</strong><code>@PreviewAssetName</code></div>
+            <div><strong>PackagePath：</strong><code>@PreviewPackagePath</code></div>
+            <div><strong>ObjectPath：</strong><code>@PreviewObjectPath</code></div>
             <div class="text-muted mt-1">
-                AssetClass 与 PackagePath 前缀必须先对照真实样本实测确认，不得凭印象写死。
+                PackagePath 是由导出目录 <code>Content/Blueprints/…</code> 映射为 <code>/Game/Blueprints/…</code>
+                <strong>推断</strong>而来，尚未用真实样本实测确认；AssetClass 同样待确认。
             </div>
         </div>
 
@@ -135,8 +148,33 @@
     </div>
 </div>
 
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">5 · 样本事实（来自实测，不是假设）</h2>
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr><th>项</th><th>值</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>AssetRegistry.bin</td><td>6.2 MB，version 21，bFilterEditorOnly = 1</td></tr>
+                <tr><td>Blueprints 导出集</td><td>2137 个 <code>.uasset</code> + 2137 个 <code>.uexp</code>，共 24.5 MB</td></tr>
+                <tr><td>卡牌资产</td><td>2019 个，分布：<code>card_unit</code> 1023、<code>card_event</code> 785、<code>card_location</code> 179、<code>card_wildcard</code> 24</td></tr>
+                <tr><td>卡牌目录结构</td><td><code>Cards/&lt;国家&gt;/&lt;系列&gt;/&lt;类型&gt;/card_*.uasset</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 @code {
     private const long MaxBytes = 64L * 1024 * 1024;
+
+    private static readonly string[] Nations =
+    [
+        "USA", "Soviet", "Germany", "Japan", "Britain", "Italy", "France",
+        "Finland", "Poland", "ANZAC", "Neutral"
+    ];
+
+    private static readonly string[] Kinds = ["events", "units", "locations", "specialCards"];
 
     private string? _fileName;
     private long _size;
@@ -144,19 +182,38 @@
     private AssetRegistryHeader? _header;
     private string? _error;
 
-    private string _cardName = "";
-    private string _cardClass = "";
-    private string _cardPath = "";
+    private string _nation = "USA";
+    private string _set = "Base";
+    private string _kind = "units";
+    private string _slug = "";
 
-    private string PreviewObjectPath
+    private static string KindPrefix(string kind) => kind switch
+    {
+        "events" => "event",
+        "units" => "unit",
+        "locations" => "location",
+        _ => "special"
+    };
+
+    private string PreviewAssetName
     {
         get
         {
-            var name = string.IsNullOrWhiteSpace(_cardName) ? "card_xx_xx" : _cardName.Trim();
-            var path = string.IsNullOrWhiteSpace(_cardPath) ? "/Game/…" : _cardPath.Trim().TrimEnd('/');
-            return $"{path}/{name}.{name}";
+            var slug = string.IsNullOrWhiteSpace(_slug) ? "<name>" : _slug.Trim();
+            return $"card_{KindPrefix(_kind)}_{slug}";
         }
     }
+
+    private string PreviewPackagePath
+    {
+        get
+        {
+            var set = string.IsNullOrWhiteSpace(_set) ? "<set>" : _set.Trim().Trim('/');
+            return $"/Game/Blueprints/Cards/{_nation}/{set}/{_kind}";
+        }
+    }
+
+    private string PreviewObjectPath => $"{PreviewPackagePath}/{PreviewAssetName}.{PreviewAssetName}";
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {

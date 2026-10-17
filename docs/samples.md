@@ -27,6 +27,20 @@
 
 结论：资产浏览与字节码面板都有样本可用，且体积很小（最大 23 KB），**浏览器内存完全不是问题**——之前担心的「大 uasset 压垮 WASM」在这批样本上不成立。
 
+### 2.1 卡牌资产（`Content/Blueprints/Cards`）
+
+| 项 | 值 |
+|---|---|
+| `card_*` 数量 | **2019** |
+| 类型前缀分布 | `card_unit` 1023、`card_event` 785、`card_location` 179、`card_wildcard` 24、`card_display` 4、`card_brawl` 2、`card_sideeffect` 2 |
+| 目录结构 | `Cards/<国家>/<系列>/<类型>/card_*.uasset` |
+| 国家目录 | ANZAC、Britain、Finland、France、Germany、Italy、Japan、Neutral、Poland、Soviet、USA，另有 BrawlCards、PromoCards、Render、Tutorials、Visuals、Wildcards、ZSideEffectHolders |
+| 系列目录（USA 下抽样） | Allegiance、Base、BloodIron、Breakthrough、BrothersInArms、CovertOp、Homefront、Legions、locations、NavalWarfare、OceaniaStorm、specialCards、ToW、WinterWar、WorldAtWar |
+
+命名示例：`card_unit_16th_infantry_brigade_vet`、`card_event_aans`、`card_location_alam_el_halfa`、`card_wildcard_elite_britain`。
+
+**待确认**：导出目录 `Content/Blueprints/…` 到游戏内 `PackagePath` 的映射（当前推断为 `/Game/Blueprints/…`），以及卡牌的 `AssetClass`。两者都必须用真实样本核对后才能写进写回逻辑。
+
 ## 3. Paks 目录
 
 | 文件 | 大小 | 说明 |
