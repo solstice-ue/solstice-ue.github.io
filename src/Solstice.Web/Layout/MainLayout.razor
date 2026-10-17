@@ -1,16 +1,12 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+@inherits LayoutComponentBase
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+<div style="max-width: 1040px; margin: 0 auto; padding: 28px 20px 64px;">
+    <header style="margin-bottom: 24px;">
+        <FlareText Typo="TypographyScale.HeadlineMedium">Solstice</FlareText>
+        <FlareText Typo="TypographyScale.BodySmall">
+            KARDS · UE 5.6.1 · AssetRegistry 工作台
+        </FlareText>
+    </header>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+    @Body
 </div>

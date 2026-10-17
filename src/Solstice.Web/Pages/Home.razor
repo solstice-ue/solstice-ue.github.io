@@ -4,166 +4,135 @@
 
 <PageTitle>Solstice · AssetRegistry 工作台</PageTitle>
 
-<h1 class="h3 mb-3">AssetRegistry 工作台</h1>
-
-<div class="alert alert-warning py-2" role="alert">
-    <strong>原型阶段（Phase 1）。</strong>
-    当前只做两件事：读出文件固定头部、计算 SHA-256。
-    资产列表、新增条目与写回<strong>尚未接入</strong>——见
-    <a href="https://github.com/CCB-TEAM/Solstice/blob/main/docs/implementation-roadmap.md">实现路线图</a>
-    的 Phase 0–3。
-</div>
-
-<div class="card mb-3">
-    <div class="card-body">
-        <h2 class="h5">1 · 载入文件</h2>
-        <InputFile OnChange="OnFileSelected" class="form-control" />
-        <div class="form-text">
-            选择一个 <code>AssetRegistry.bin</code>。上限 @(MaxBytes / 1024 / 1024) MB。
-            文件只在浏览器内处理，不会上传。
-        </div>
+<FlareCard Style="margin-bottom:16px">
+    <FlareText Typo="TypographyScale.TitleMedium">1 · 载入文件</FlareText>
+    <p style="margin:8px 0 12px; opacity:.75; font-size:14px;">
+        原型阶段（Phase 1）：当前只读出固定头部并计算 SHA-256。资产列表、新增条目与写回<strong>尚未接入</strong>。
+    </p>
+    <InputFile OnChange="OnFileSelected" />
+    <div style="margin-top:8px; font-size:12px; opacity:.7;">
+        选择一个 <code>AssetRegistry.bin</code>，上限 @(MaxBytes / 1024 / 1024) MB。文件只在浏览器内处理，不会上传。
     </div>
-</div>
+</FlareCard>
 
 @if (_error is not null)
 {
-    <div class="alert alert-danger" role="alert">
+    <div style="background:#ffdad6; color:#410002; padding:12px 16px; border-radius:12px; margin-bottom:16px;">
         <strong>读取失败：</strong>@_error
     </div>
 }
 
 @if (_fileName is not null)
 {
-    <div class="card mb-3">
-        <div class="card-body">
-            <h2 class="h5">2 · 文件事实</h2>
-            <dl class="row mb-0">
-                <dt class="col-sm-3">文件名</dt>
-                <dd class="col-sm-9"><code>@_fileName</code></dd>
+    <FlareCard Style="margin-bottom:16px">
+        <FlareText Typo="TypographyScale.TitleMedium">2 · 文件事实</FlareText>
+        <dl style="display:grid; grid-template-columns:120px 1fr; gap:8px 16px; margin:12px 0 0; font-size:14px;">
+            <dt style="opacity:.7;">文件名</dt>
+            <dd style="margin:0;"><code>@_fileName</code></dd>
 
-                <dt class="col-sm-3">大小</dt>
-                <dd class="col-sm-9">@FormatSize(_size)</dd>
+            <dt style="opacity:.7;">大小</dt>
+            <dd style="margin:0;">@FormatSize(_size)</dd>
 
-                <dt class="col-sm-3">SHA-256</dt>
-                <dd class="col-sm-9"><code class="text-break">@_sha256</code></dd>
-            </dl>
-        </div>
-    </div>
+            <dt style="opacity:.7;">SHA-256</dt>
+            <dd style="margin:0; word-break:break-all;"><code>@_sha256</code></dd>
+        </dl>
+    </FlareCard>
 }
 
 @if (_header is not null)
 {
-    <div class="card mb-3">
-        <div class="card-body">
-            <h2 class="h5">3 · 头部解析</h2>
+    <FlareCard Style="margin-bottom:16px">
+        <FlareText Typo="TypographyScale.TitleMedium">3 · 头部解析</FlareText>
 
-            @if (_header.GuidMatches)
-            {
-                <p class="text-success mb-2">✓ 文件标识匹配 UE 的 AssetRegistry 现代格式。</p>
-            }
-            else
-            {
-                <p class="text-danger mb-2">
-                    ✗ 文件标识不匹配。这可能不是 AssetRegistry.bin，或是更老的格式——
-                    本读取器不覆盖老格式，也不会假装读懂了它。
-                </p>
-            }
-
-            <dl class="row mb-0">
-                <dt class="col-sm-3">GUID</dt>
-                <dd class="col-sm-9"><code>@_header.GuidHex</code></dd>
-
-                <dt class="col-sm-3">version</dt>
-                <dd class="col-sm-9">
-                    <code>@_header.Version</code>
-                    @if (_header.Version == 21)
-                    {
-                        <span class="badge bg-success ms-2">与 KARDS 实测样本一致</span>
-                    }
-                </dd>
-
-                <dt class="col-sm-3">bFilterEditorOnly</dt>
-                <dd class="col-sm-9"><code>@_header.FilterEditorOnly</code></dd>
-            </dl>
-
-            <hr />
-            <p class="text-muted mb-0 small">
-                资产数组、name 表、FStore 与依赖节点<strong>尚未解析</strong>。
-                这部分要等既有库移植进 WASM 并通过验证（路线图 Phase 0）。
+        @if (_header.GuidMatches)
+        {
+            <p style="color:#146c2e; margin:12px 0 8px; font-size:14px;">
+                ✓ 文件标识匹配 UE 的 AssetRegistry 现代格式。
             </p>
-        </div>
-    </div>
+        }
+        else
+        {
+            <p style="color:#8c1d18; margin:12px 0 8px; font-size:14px;">
+                ✗ 文件标识不匹配。这可能不是 AssetRegistry.bin，或是更老的格式——本读取器不覆盖老格式，也不会假装读懂了它。
+            </p>
+        }
+
+        <dl style="display:grid; grid-template-columns:160px 1fr; gap:8px 16px; margin:0; font-size:14px;">
+            <dt style="opacity:.7;">GUID</dt>
+            <dd style="margin:0;"><code>@_header.GuidHex</code></dd>
+
+            <dt style="opacity:.7;">version</dt>
+            <dd style="margin:0;">
+                <code>@_header.Version</code>
+                @if (_header.Version == 21)
+                {
+                    <span style="margin-left:8px; padding:2px 8px; border-radius:999px; background:#c4eed0; color:#072711; font-size:12px;">
+                        与 KARDS 实测样本一致
+                    </span>
+                }
+            </dd>
+
+            <dt style="opacity:.7;">bFilterEditorOnly</dt>
+            <dd style="margin:0;"><code>@_header.FilterEditorOnly</code></dd>
+        </dl>
+
+        <p style="margin:12px 0 0; font-size:12px; opacity:.7;">
+            资产数组、name 表、FStore 与依赖节点<strong>尚未解析</strong>——要等既有库移植进 WASM 并通过验证（路线图 Phase 0）。
+        </p>
+    </FlareCard>
 }
 
-<div class="card mb-3">
-    <div class="card-body">
-        <h2 class="h5">4 · 新增卡牌条目</h2>
-        <p class="text-muted small">
-            <strong>尚未实现</strong>：下面的表单只收集字段并预览将要生成的条目，不会写入任何文件。
-        </p>
+<FlareCard Style="margin-bottom:16px">
+    <FlareText Typo="TypographyScale.TitleMedium">4 · 新增卡牌条目</FlareText>
+    <p style="margin:8px 0 12px; font-size:13px; opacity:.75;">
+        <strong>尚未实现</strong>：下面的表单只收集字段并预览将要生成的条目，不会写入任何文件。
+    </p>
 
-        <div class="row g-2 mb-2">
-            <div class="col-md-3">
-                <label class="form-label" for="nation">国家</label>
-                <select id="nation" class="form-select" @bind="_nation">
-                    @foreach (var n in Nations)
-                    {
-                        <option value="@n">@n</option>
-                    }
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label" for="set">系列</label>
-                <input id="set" class="form-control" placeholder="Base" @bind="_set" @bind:event="oninput" />
-            </div>
-            <div class="col-md-3">
-                <label class="form-label" for="kind">类型</label>
-                <select id="kind" class="form-select" @bind="_kind">
-                    @foreach (var k in Kinds)
-                    {
-                        <option value="@k">@k</option>
-                    }
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label" for="slug">卡牌名（不含前缀）</label>
-                <input id="slug" class="form-control" placeholder="16th_infantry_brigade_vet"
-                       @bind="_slug" @bind:event="oninput" />
-            </div>
-        </div>
-
-        <div class="border rounded p-2 bg-light small">
-            <div><strong>资产名：</strong><code>@PreviewAssetName</code></div>
-            <div><strong>PackagePath：</strong><code>@PreviewPackagePath</code></div>
-            <div><strong>ObjectPath：</strong><code>@PreviewObjectPath</code></div>
-            <div class="text-muted mt-1">
-                PackagePath 是由导出目录 <code>Content/Blueprints/…</code> 映射为 <code>/Game/Blueprints/…</code>
-                <strong>推断</strong>而来，尚未用真实样本实测确认；AssetClass 同样待确认。
-            </div>
-        </div>
-
-        <button class="btn btn-secondary mt-2" disabled title="尚未实现">
-            写入注册表（未实现）
-        </button>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;">
+        <FlareSelect Label="国家" @bind-Value="_nation" Items="Nations" />
+        <FlareTextField Label="系列" @bind-Value="_set" />
+        <FlareSelect Label="类型" @bind-Value="_kind" Items="Kinds" />
+        <FlareTextField Label="卡牌名（不含前缀）" @bind-Value="_slug" />
     </div>
-</div>
 
-<div class="card mb-3">
-    <div class="card-body">
-        <h2 class="h5">5 · 样本事实（来自实测，不是假设）</h2>
-        <table class="table table-sm mb-0">
-            <thead>
-                <tr><th>项</th><th>值</th></tr>
-            </thead>
-            <tbody>
-                <tr><td>AssetRegistry.bin</td><td>6.2 MB，version 21，bFilterEditorOnly = 1</td></tr>
-                <tr><td>Blueprints 导出集</td><td>2137 个 <code>.uasset</code> + 2137 个 <code>.uexp</code>，共 24.5 MB</td></tr>
-                <tr><td>卡牌资产</td><td>2019 个，分布：<code>card_unit</code> 1023、<code>card_event</code> 785、<code>card_location</code> 179、<code>card_wildcard</code> 24</td></tr>
-                <tr><td>卡牌目录结构</td><td><code>Cards/&lt;国家&gt;/&lt;系列&gt;/&lt;类型&gt;/card_*.uasset</code></td></tr>
-            </tbody>
-        </table>
+    <div style="margin-top:16px; padding:12px; border-radius:12px; background:rgba(128,128,128,.10); font-size:13px;">
+        <div><strong>资产名：</strong><code>@PreviewAssetName</code></div>
+        <div><strong>PackagePath：</strong><code>@PreviewPackagePath</code></div>
+        <div><strong>ObjectPath：</strong><code>@PreviewObjectPath</code></div>
+        <div style="opacity:.65; margin-top:8px;">
+            PackagePath 由导出目录 <code>Content/Blueprints/…</code> 映射为 <code>/Game/Blueprints/…</code> <strong>推断</strong>而来，
+            尚未用真实样本实测确认；AssetClass 同样待确认。
+        </div>
     </div>
-</div>
+
+    <div style="margin-top:16px;">
+        <FlareButton Variant="ButtonVariant.Filled" Disabled="true">写入注册表（未实现）</FlareButton>
+    </div>
+</FlareCard>
+
+<FlareCard>
+    <FlareText Typo="TypographyScale.TitleMedium">5 · 样本事实（来自实测，不是假设）</FlareText>
+    <table style="width:100%; margin-top:12px; border-collapse:collapse; font-size:14px;">
+        <tbody>
+            <tr>
+                <td style="padding:8px 0; width:180px; opacity:.7;">AssetRegistry.bin</td>
+                <td style="padding:8px 0;">6.2 MB，version 21，bFilterEditorOnly = 1</td>
+            </tr>
+            <tr>
+                <td style="padding:8px 0; opacity:.7;">Blueprints 导出集</td>
+                <td style="padding:8px 0;">2137 个 <code>.uasset</code> + 2137 个 <code>.uexp</code>，共 24.5 MB</td>
+            </tr>
+            <tr>
+                <td style="padding:8px 0; opacity:.7;">卡牌资产</td>
+                <td style="padding:8px 0;">2019 个：<code>card_unit</code> 1023、<code>card_event</code> 785、<code>card_location</code> 179、<code>card_wildcard</code> 24</td>
+            </tr>
+            <tr>
+                <td style="padding:8px 0; opacity:.7;">卡牌目录结构</td>
+                <td style="padding:8px 0;"><code>Cards/&lt;国家&gt;/&lt;系列&gt;/&lt;类型&gt;/card_*.uasset</code></td>
+            </tr>
+        </tbody>
+    </table>
+</FlareCard>
 
 @code {
     private const long MaxBytes = 64L * 1024 * 1024;

@@ -13,6 +13,10 @@
 
 **边界规则**：`Solstice.Core` 不得引用 Blazor；UI 逻辑不得下沉到 Core。
 
+**UI 技术栈**：**Flare 0.44.0**（`Flare.Blazor`）+ **`Flare.Theme.MaterialDesign3`**，即 Material Design 3，零第三方 CSS。**不使用 Bootstrap**——模板自带的 Bootstrap、`app.css` 与 scoped CSS 已全部移除。主题在 `<html>` 上以类切换（`flare-theme-md3` / `flare-palette-md3-violet` / `flare-mode-*`），首帧由 `flare-bootstrap.js` 预先套用，避免主题闪烁。
+
+注意：MD3 基线主题包是**纯 DLL**，不带 CSS；令牌全部内联在 `flare-components.css` 里。只有 Expressive 等变体才额外提供主题样式表。
+
 ## 2. 目标目录布局
 
 ```

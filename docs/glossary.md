@@ -51,6 +51,9 @@
 | **WASM** | WebAssembly，浏览器里运行 .NET 的形态 |
 | **Blazor WASM** | 用 C# 写前端、编译成 WASM 在浏览器里跑 |
 | **submodule** | git 子模块，用来引入 UAssetRegistry 等既有库的源码 |
+| **Flare** | 本项目使用的 Blazor 组件库（190+ 组件，零第三方 CSS）。**Flare 本身不带主题**，设计系统由 `Flare.Theme.*` 独立包提供；本项目用 MD3 |
+| **MD3** | Material Design 3，Flare 的设计系统之一。主题、调色板、明暗三个轴可在运行时独立切换 |
+| **flare-* 令牌** | Flare 的语义化 CSS 变量（`--flare-color-*`、`--flare-shape-*` 等），主题靠换这些变量重绘 |
 | **fixture** | 测试用的样本文件。**必须是可合法分发的**，且不进仓库 |
 | **golden 对比** | 把移植版输出与桌面版输出逐字段比对，作为回归基线 |
 

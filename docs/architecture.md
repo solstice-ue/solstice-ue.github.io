@@ -12,6 +12,7 @@
 | 解析能力来源 | **移植** CCB-TEAM 既有 C# 库，不重写（UAssetRegistry / KismetDecompiler / Prism / ULocres） |
 | 依赖引入方式 | **git submodule** 引入源码，允许边移植边改 |
 | 运行形态 | 纯浏览器 Blazor WASM |
+| UI 组件库 | **Flare 0.44.0 + `Flare.Theme.MaterialDesign3`**（Material Design 3，零第三方 CSS，不用 Bootstrap） |
 | 部署 | **GitHub Pages 静态托管**（见 §10） |
 | pak | 不在浏览器内解包，由 Prism 预先取出散文件 |
 | 字节码 | **双路径**：新建函数走 UKAPI；既有函数只允许改参数与常量值（见 [ADR 0002](decisions/0002-dual-path-bytecode.md)） |

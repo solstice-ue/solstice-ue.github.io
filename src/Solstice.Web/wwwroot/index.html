@@ -1,31 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Solstice.Web</title>
+    <title>Solstice · AssetRegistry 工作台</title>
     <base href="/" />
     <link rel="preload" id="webassembly" />
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="css/app.css" />
+
+    <!-- Flare：首帧前套用主题类，避免主题闪烁。data-default-* 必须与 Program.cs 里注册的一致。 -->
+    <script src="_content/Flare.Components/js/flare-bootstrap.js"
+            data-default-theme="md3"
+            data-default-palette="md3-violet"
+            data-default-mode="auto"></script>
+    <link rel="stylesheet" href="_content/Flare.Components/css/flare-components.css" />
+
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link href="Solstice.Web.styles.css" rel="stylesheet" />
     <script type="importmap"></script>
+
+    <style>
+        html { background: #fffbfe; }
+        html.flare-mode-dark { background: #141218; }
+
+        #flare-splash {
+            position: fixed; inset: 0; z-index: 99999;
+            display: flex; align-items: center; justify-content: center;
+            background: #fffbfe; color: #1d1b20;
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            font-size: 15px; letter-spacing: .08em;
+        }
+        html.flare-mode-dark #flare-splash { background: #141218; color: #e6e1e5; }
+
+        #blazor-error-ui {
+            display: none; position: fixed; bottom: 0; left: 0; right: 0;
+            z-index: 100000; padding: 12px 16px;
+            background: #ffdad6; color: #410002;
+            font-family: system-ui, sans-serif; font-size: 14px;
+        }
+        #blazor-error-ui .reload { color: #8c1d18; margin-left: 12px; }
+        #blazor-error-ui .dismiss { cursor: pointer; float: right; }
+    </style>
 </head>
 
 <body>
-    <div id="app">
-        <svg class="loading-progress">
-            <circle r="40%" cx="50%" cy="50%" />
-            <circle r="40%" cx="50%" cy="50%" />
-        </svg>
-        <div class="loading-progress-text"></div>
-    </div>
+    <div id="flare-splash">SOLSTICE</div>
+    <div id="app"></div>
 
     <div id="blazor-error-ui">
-        An unhandled error has occurred.
-        <a href="." class="reload">Reload</a>
+        应用出现未处理的错误。
+        <a href="." class="reload">重新加载</a>
         <span class="dismiss">🗙</span>
     </div>
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
