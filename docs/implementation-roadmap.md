@@ -13,17 +13,20 @@
 
 ## Phase 0 — 移植可行性评估
 
+**状态：`TESTED`（已测试）—— 2026-10-17 通过。**
+
 **目标：证明既有库能在浏览器里跑。**
 
 任务：
-- 以 git submodule 引入 UAssetRegistry 源码。
-- 在 .NET 10 控制台程序中解析 `AssetRegistry.bin`（v21 / 6.2 MB），记录资产条数与耗时。
-- 把同一段代码放进 Blazor WASM，验证 AOT 裁剪、反射、`System.IO` 依赖是否构成阻塞。
-- 记录所有需要改造的点：`File.ReadAllBytes` / `Path.Combine` 等路径 API 改为 `Stream` / `byte[]`。
+- 以 git submodule 引入 UAssetRegistry 源码。（已完成）
+- 在 .NET 10 控制台程序中解析 `AssetRegistry.bin`（v21 / 6.2 MB），记录资产条数与耗时。（已完成：16250 条 / 1.4 s）
+- 把同一段代码放进 Blazor WASM，验证 AOT 裁剪、反射、`System.IO` 依赖是否构成阻塞。（已完成：浏览器内 16250 条 / 5.3 s）
+- 记录所有需要改造的点：`File.ReadAllBytes` / `Path.Combine` 等路径 API 改为 `Stream` / `byte[]`。（实际未遇到阻塞——库已经是以 `byte[]` 为入口）
 
 验收：
-- 控制台与浏览器输出**相同的资产条数**。
-- 移植改造点清单成文，每条注明「已改 / 待改 / 阻塞」。
+- ✅ 控制台与浏览器输出**相同的资产条数**（均为 16250）。
+- ✅ 移植方式确定：上游是 Exe 项目，无法被自包含的 WASM 应用引用（NETSDK1150），
+  因此把 `AssetRegistry/` 源码编成 `Solstice.AssetRegistry` 库。
 
 ## Phase 1 — Solstice.Web 骨架与文件进出
 

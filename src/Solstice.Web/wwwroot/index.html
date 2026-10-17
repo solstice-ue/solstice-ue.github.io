@@ -15,6 +15,15 @@
             data-default-mode="auto"></script>
     <link rel="stylesheet" href="_content/Flare.Components/css/flare-components.css" />
 
+    <!--
+        字体：MiSans（中文正文）+ JetBrains Mono（代码）。
+        MiSans 走 npmmirror —— cdn.jsdelivr.net 在本机与国内网络均不可达，unpkg 可用但国内慢。
+        JetBrains Mono 走 Google Fonts。
+        两者都只是显示层，加载失败会退回系统字体，不影响功能。
+    -->
+    <link rel="stylesheet" href="https://registry.npmmirror.com/misans/5.0.0/files/lib/Normal/MiSansVF.min.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" />
+
     <link rel="icon" type="image/png" href="favicon.png" />
     <script type="importmap"></script>
 
@@ -22,9 +31,43 @@
         html { background: #fffbfe; }
         html.flare-mode-dark { background: #141218; }
 
+        /*
+            覆盖 Flare 的字号令牌默认字体（原本是 Roboto）。
+            必须写在 .flare-theme-md3 之前声明的同名变量之后才能生效，
+            所以选择器要写到 html.flare-theme-md3 这一级。
+        */
+        html.flare-theme-md3 {
+            --flare-typescale-display-large-font: "MiSans VF";
+            --flare-typescale-display-medium-font: "MiSans VF";
+            --flare-typescale-display-small-font: "MiSans VF";
+            --flare-typescale-headline-large-font: "MiSans VF";
+            --flare-typescale-headline-medium-font: "MiSans VF";
+            --flare-typescale-headline-small-font: "MiSans VF";
+            --flare-typescale-title-large-font: "MiSans VF";
+            --flare-typescale-title-medium-font: "MiSans VF";
+            --flare-typescale-title-small-font: "MiSans VF";
+            --flare-typescale-body-large-font: "MiSans VF";
+            --flare-typescale-body-medium-font: "MiSans VF";
+            --flare-typescale-body-small-font: "MiSans VF";
+            --flare-typescale-label-large-font: "MiSans VF";
+            --flare-typescale-label-medium-font: "MiSans VF";
+            --flare-typescale-label-small-font: "MiSans VF";
+            --flare-btn-label-xs-font: "MiSans VF";
+            --flare-btn-label-sm-font: "MiSans VF";
+            --flare-btn-label-md-font: "MiSans VF";
+            --flare-btn-label-lg-font: "MiSans VF";
+            --flare-btn-label-xl-font: "MiSans VF";
+        }
+
         body {
             margin: 0;
-            font-family: Roboto, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+            font-family: "MiSans VF", "MiSans", system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+        }
+
+        /* 代码用等宽字体，覆盖 Flare 继承下来的正文字体 */
+        code, pre, kbd, samp {
+            font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+            font-size: 0.92em;
         }
 
         /* ---------- 启动画面 ---------- */
