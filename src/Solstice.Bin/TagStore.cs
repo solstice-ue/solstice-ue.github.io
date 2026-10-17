@@ -65,8 +65,20 @@ public sealed class TagStore
         var textBytes = BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(s, 4));
         s += 4;
         s = Align(s, align16);
-        var textData = file.AsSpan(s, textBytes).ToArray();
-        s += textBytes;
+
+        // CUE4Parse 的读法：这里不是「按字节长度切一块」，而是 nums[4] 个 FString
+        // （int32 长度前缀；正数为 ASCII，负数为 UTF-16 字符数）。按字节切会在
+        // 含非 ASCII 时错位。
+        var textStart = s;
+        for (var i = 0; i < nums[4]; i++)
+        {
+            var len = BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(s, 4));
+            s += 4;
+            s += len < 0 ? -len * 2 : len;
+        }
+
+        var textData = file.AsSpan(textStart, s - textStart).ToArray();
+        _ = textBytes;
 
         var store = new TagStore { _nums = nums, _textData = textData, _align16 = align16 };
 
