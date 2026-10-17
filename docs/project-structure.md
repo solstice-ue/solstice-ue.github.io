@@ -105,6 +105,23 @@ dotnet run --project tests/Solstice.Core.Tests
 | 工作流 | [`.github/workflows/deploy-pages.yml`](../.github/workflows/deploy-pages.yml)：restore → test → publish → upload `publish/wwwroot` |
 | 实测 | build 46s + deploy 10s；线上首屏 WASM 启动约 42s（6 MB 资源首次未缓存），console 无报错 |
 
+### 为什么用官方 artifact 部署，而不是 `gh-pages` 分支
+
+工作流里全是 GitHub 第一方的 action（`configure-pages` / `upload-pages-artifact` / `deploy-pages`）。这是目前唯一能配合 `build_type=workflow` 的方式：
+
+- 不产生 `gh-pages` 分支，仓库里不会多一棵构建产物树。
+- 不需要给第三方 action 写权限。
+
+`peaceiris/actions-gh-pages` 这类第三方方案虽然流行，但属于 legacy 路径，会把产物推成分支。
+
+### SPA 回退：`404.html`
+
+**Pages 没有 SPA 回退**，直接访问 `/assets`、`/bytecode` 这类客户端路由会 404，任何 action 都不会替你处理。
+
+处理方式写在 `Solstice.Web.csproj` 的发布目标里：把 `index.html` 复制成 `404.html`。Pages 用 404.html 接住未知路径，应用以**原 URL** 启动，Blazor Router 再匹配到正确页面。只复制、不维护第二份源码。
+
+**已知代价**：`/assets` 返回的 HTTP 状态码仍是 404（内容正常渲染）。对内部工具无所谓；若要 200，只能改用 hash 路由（`/#/assets`），代价是 URL 变丑。
+
 ```bash
 dotnet publish src/Solstice.Web -c Release -o publish
 ```
