@@ -61,6 +61,7 @@ public class FAssetRegistryWriter
         {
             AddName(a.PackagePath.Value?.Value);
             AddName(a.AssetClass.Value?.Value);
+            AddName(a.ClassPackage.Value?.Value);
             AddName(a.PackageName.Value?.Value);
             AddName(a.AssetName.Value?.Value);
 
@@ -226,8 +227,9 @@ public class FAssetRegistryWriter
 
         if (_state.Version >= FAssetRegistryVersionType.ClassPaths)
         {
-            // FTopLevelAssetPath：PackageName + AssetName（读取时只取 AssetName）
-            WriteFNameStr("None");
+            // FTopLevelAssetPath = (ClassPackage, AssetClass)。
+            // 上游把 ClassPackage 硬写成 "None"，写回后所有资产的类路径都废了。
+            WriteFName(a.ClassPackage);
             WriteFName(a.AssetClass);
         }
         else

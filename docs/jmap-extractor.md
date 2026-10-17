@@ -8,19 +8,23 @@
 
 ```bash
 dotnet run --project tools/JmapExtractor -c Release -- \
-  <jmap.json> <outDir>
+  <jmap.json> <outDir> [AssetRegistry.bin]
 ```
 
-实测：63.2 MB 输入 → **2 秒**，峰值内存约 1 GB（`JsonDocument` 全量载入）。
+第三个参数可选：给了就把 `AssetRegistry.bin` 里的 `/Game` 对象并进对象表。
+
+实测：63.2 MB JMAP + 6.2 MB bin → **约 3 秒**，峰值内存约 1.2 GB。
 
 ## 产出
 
 | 文件 | 内容 | 实测大小 |
 |---|---|---|
-| `objects.json` | 全量对象表，29,675 条 | 4.98 MB |
-| `objects.kards.json` | 只含 4 个 Kards 包，1,870 条 | 0.29 MB |
-| `functions.json` | 函数表，1,216 个宿主 / 13,064 个函数 | 4.74 MB |
+| `objects.json` | 全量对象表，**47,311** 条 | 8.94 MB |
+| `objects.kards.json` | 只含 4 个 Kards 包，1,870 条 | 0.32 MB |
+| `functions.json` | 函数表，1,216 个宿主 / 13,064 个函数 | 4.73 MB |
 | `functions.kards.json` | 同上，94 个宿主 / 1,416 个函数 / 2,653 个参数 | 0.45 MB |
+
+对象表构成：**jmap 29,675 + `/Game` 资产 16,250 + 合成包节点 1,386 = 47,311**。
 
 「Kards 模块」= `/Script/kards`、`/Script/KardsCore`、`/Script/KardsSubsystems`、`/Script/KardsWidgets`。
 
@@ -51,10 +55,30 @@ dotnet run --project tools/JmapExtractor -c Release -- \
 
 | 字段 | 用途 |
 |---|---|
-| `type` | 判断是 Package / Class / Struct / Function… |
+| `type` | `Package` / `Class` / `Struct` / `Function` / **`Asset`**（来自注册表） |
 | `outer` | 拼 Outer 链；`null` 表示顶层包 |
-| `class` | 该对象的类（对应 Import 的 ClassObject） |
-| `super` | 继承父类（对应 Import 的 SuperStruct） |
+| `class` | 该对象的类（对应 Import 的 ClassObject），**完整路径**如 `/Script/Engine.Blueprint` |
+| `super` | 继承父类（对应 Import 的 SuperStruct）；`/Game` 资产没有此信息 |
+| `source` | `jmap` 或 `registry`，标明这条记录来自哪份数据 |
+
+### `/Game` 部分怎么来的
+
+`AssetRegistry.bin` 没有 import 表（`FPackageIndex` 是包内局部的），它能给的是 **`/Game` 侧的全局对象清单**：
+
+- **资产条目**：`type: "Asset"`，`class` 由注册表里的 `FTopLevelAssetPath` 还原（`ClassPackage + "." + AssetClass`）。
+- **合成包节点**：为每个 `PackagePath` 及其所有祖先补一条 `type: "Package"`，`class` 固定 `/Script/CoreUObject.Package`，让 `outer` 链能一路走到 `/Game`。
+
+例：
+
+```json
+"/Game/Blueprints/Cards/ANZAC/specialCards/card_unit_x.card_unit_x": {
+  "type": "Asset",
+  "outer": "/Game/Blueprints/Cards/ANZAC/specialCards",
+  "class": "/Script/Engine.Blueprint",
+  "super": null,
+  "source": "registry"
+}
+```
 
 ## 2. functions.json —— 用于节点构建与推荐
 
@@ -86,6 +110,6 @@ dotnet run --project tools/JmapExtractor -c Release -- \
 
 1. **`functions.json` 只含「有函数的对象」**（1,216 个），不是全部 29,675 个对象。要完整对象信息查 `objects.json`。
 2. **Kards-only 版不含参数类型的定义**。例如某参数是 `/Script/Engine.Foo`，它在 kards 缓存里查不到，需要回落到全量 `objects.json`。
-3. **没有 `/Game` 对象**。JMAP 是运行时活对象转储，只含已加载的脚本包。`/Game` 资产路径必须来自 `AssetRegistry.bin`。
+3. **`/Game` 只有资产级条目**。注册表不描述包内子对象，也不含 import 表；`/Game` 资产没有 `super`（要读 uasset 才知道父类）。
 4. **没有函数体**。`CardFunctionsStub` 的函数是 `FUNC_BlueprintEvent`，C++ 只声明、蓝图实现；字节码在 `/Game` 的 uasset 里，JMAP 只给签名。
 5. **类布局是分段的**。`Class.properties` 只含本类自有字段，完整布局要沿 `super` 链累加（父类在前）。

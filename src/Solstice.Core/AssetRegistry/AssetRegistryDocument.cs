@@ -8,7 +8,8 @@ public sealed record AssetEntry(
     string ObjectPath,
     string PackagePath,
     string AssetName,
-    string AssetClass);
+    string AssetClass,
+    string ClassPackage);
 
 /// <summary>
 /// 一份可编辑的 AssetRegistry 文档。
@@ -69,7 +70,8 @@ public sealed class AssetRegistryDocument
                 a.ObjectPath,
                 a.PackagePath.ToString(),
                 a.AssetName.ToString(),
-                a.AssetClass.ToString());
+                a.AssetClass.ToString(),
+                a.ClassPackage.ToString());
         }
 
         return result;
@@ -145,7 +147,8 @@ public sealed class AssetRegistryDocument
             assetClass: "Blueprint",
             tagsAndValues: tags,
             chunkIDs: new[] { chunkId },
-            packageFlags: EPackageFlags.PKG_Cooked));
+            packageFlags: EPackageFlags.PKG_Cooked,
+            classPackage: "/Script/Engine"));
 
         _state.AddAsset(new FAssetData(
             packageName: packageName,
@@ -154,7 +157,8 @@ public sealed class AssetRegistryDocument
             assetClass: "BlueprintGeneratedClass",
             tagsAndValues: null,
             chunkIDs: new[] { chunkId },
-            packageFlags: EPackageFlags.PKG_Cooked));
+            packageFlags: EPackageFlags.PKG_Cooked,
+            classPackage: "/Script/Engine"));
 
         return true;
     }

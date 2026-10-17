@@ -9,4 +9,8 @@
     <AssemblyName>JmapExtractor</AssemblyName>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Solstice.AssetRegistry\Solstice.AssetRegistry.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -1,23 +1,23 @@
 using System.Text.Json;
+using UAssetRegistry;
 
 namespace Solstice.Tools.JmapExtractor;
 
 /// <summary>
-/// 把 trumank/jmap 导出的活对象转储（JSON）抽成两份可供 UKAPI 使用的表。
+/// 把 trumank/jmap 的活对象转储与 AssetRegistry.bin 合成两份表。
 ///
-/// <para>用法：<c>JmapExtractor &lt;jmap.json&gt; &lt;outDir&gt;</c></para>
+/// <para>用法：<c>JmapExtractor &lt;jmap.json&gt; &lt;outDir&gt; [AssetRegistry.bin]</c></para>
 ///
-/// <para>产出四份文件：</para>
+/// <para>产出：</para>
 /// <list type="bullet">
-///   <item><c>objects.json</c> —— 对象表，含 outer / class / super_struct，用于构建 import 表；</item>
-///   <item><c>objects.kards.json</c> —— 同上，只保留 4 个 Kards 包，用于缓存；</item>
-///   <item><c>functions.json</c> —— 以对象完整路径为 key，函数嵌在对象里，含参数名与 in/out；</item>
+///   <item><c>objects.json</c> —— 对象表。jmap 提供 /Script，AssetRegistry 提供 /Game；</item>
+///   <item><c>objects.kards.json</c> —— 只保留 4 个 Kards 包，用于缓存；</item>
+///   <item><c>functions.json</c> —— 以对象完整路径为 key，函数嵌在对象里；</item>
 ///   <item><c>functions.kards.json</c> —— 同上，只保留 Kards 包。</item>
 /// </list>
 /// </summary>
 public static class Program
 {
-    /// <summary>「kards 模块」指这四个脚本包。</summary>
     private static readonly string[] KardsPackages =
     [
         "/Script/kards",
@@ -30,12 +30,13 @@ public static class Program
     {
         if (args.Length < 2)
         {
-            Console.Error.WriteLine("用法: JmapExtractor <jmap.json> <outDir>");
+            Console.Error.WriteLine("用法: JmapExtractor <jmap.json> <outDir> [AssetRegistry.bin]");
             return 2;
         }
 
         var inputPath = args[0];
         var outDir = args[1];
+        var registryPath = args.Length > 2 ? args[2] : null;
 
         if (!File.Exists(inputPath))
         {
@@ -43,8 +44,13 @@ public static class Program
             return 2;
         }
 
-        Directory.CreateDirectory(outDir);
+        if (registryPath is not null && !File.Exists(registryPath))
+        {
+            Console.Error.WriteLine($"找不到 AssetRegistry.bin: {registryPath}");
+            return 2;
+        }
 
+        Directory.CreateDirectory(outDir);
         Console.WriteLine($"[读入] {inputPath} ({new FileInfo(inputPath).Length / 1024.0 / 1024.0:F1} MB)");
 
         using var doc = JsonDocument.Parse(
@@ -64,27 +70,70 @@ public static class Program
             var o = prop.Value;
 
             var type = GetString(o, "type");
-            var outer = GetString(o, "outer");
-            var cls = GetString(o, "class");
-            var super = GetString(o, "super_struct");
+            objects[path] = new ObjInfo(type, GetString(o, "outer"), GetString(o, "class"), GetString(o, "super"), "jmap");
 
-            objects[path] = new ObjInfo(type, outer, cls, super);
-
-            if (type == "Function" && outer is not null)
+            if (type == "Function" && objects[path].Outer is { } owner)
             {
                 var shortName = path.Contains(':') ? path[(path.LastIndexOf(':') + 1)..] : path;
-                var info = new FuncInfo(
-                    shortName,
-                    GetString(o, "function_flags"),
-                    ReadParams(o));
-
-                if (!functions.TryGetValue(outer, out var list))
+                if (!functions.TryGetValue(owner, out var list))
                 {
                     list = [];
-                    functions[outer] = list;
+                    functions[owner] = list;
                 }
 
-                list.Add(info);
+                list.Add(new FuncInfo(shortName, GetString(o, "function_flags"), ReadParams(o)));
+            }
+        }
+
+        var jmapCount = objects.Count;
+
+        // ---- 并入 AssetRegistry.bin 的 /Game 对象 ----
+        var gameCount = 0;
+        var packageCount = 0;
+
+        if (registryPath is not null)
+        {
+            Console.WriteLine($"[读入] {registryPath}");
+
+            var state = AssetRegistryLoader.LoadFromFile(registryPath);
+            var packages = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var a in state.PreallocatedAssetDataBuffers)
+            {
+                var objectPath = a.ObjectPath;
+                if (objects.ContainsKey(objectPath))
+                {
+                    continue;
+                }
+
+                var packagePath = a.PackagePath.ToString();
+                var classPath = $"{a.ClassPackage}.{a.AssetClass}";
+
+                objects[objectPath] = new ObjInfo("Asset", packagePath, classPath, null, "registry");
+                gameCount++;
+
+                // 合成包节点，让 outer 链可解析
+                var p = packagePath;
+                while (!string.IsNullOrEmpty(p) && packages.Add(p))
+                {
+                    p = ParentPath(p);
+                }
+            }
+
+            foreach (var pkg in packages)
+            {
+                if (objects.ContainsKey(pkg))
+                {
+                    continue;
+                }
+
+                objects[pkg] = new ObjInfo(
+                    "Package",
+                    ParentPath(pkg),
+                    "/Script/CoreUObject.Package",
+                    null,
+                    "registry");
+                packageCount++;
             }
         }
 
@@ -92,6 +141,10 @@ public static class Program
         var counts = new
         {
             objects = objects.Count,
+            fromJmap = jmapCount,
+            fromRegistry = gameCount + packageCount,
+            gameAssets = gameCount,
+            gamePackages = packageCount,
             functionOwners = functions.Count,
             functions = functions.Sum(kv => kv.Value.Count)
         };
@@ -101,7 +154,8 @@ public static class Program
         WriteFunctions(Path.Combine(outDir, "functions.json"), objects, functions, metadata, generatedAt, counts, null);
         WriteFunctions(Path.Combine(outDir, "functions.kards.json"), objects, functions, metadata, generatedAt, counts, IsKards);
 
-        Console.WriteLine($"[完成] 对象 {counts.objects:N0}，函数宿主 {counts.functionOwners:N0}，函数 {counts.functions:N0}");
+        Console.WriteLine($"[完成] 对象 {counts.objects:N0}（jmap {jmapCount:N0} + /Game 资产 {gameCount:N0} + 合成包 {packageCount:N0}）");
+        Console.WriteLine($"[完成] 函数宿主 {counts.functionOwners:N0}，函数 {counts.functions:N0}");
         Console.WriteLine($"[输出] {outDir}");
 
         foreach (var f in new[] { "objects.json", "objects.kards.json", "functions.json", "functions.kards.json" })
@@ -111,6 +165,13 @@ public static class Program
         }
 
         return 0;
+    }
+
+    /// <summary><c>/Game/A/B</c> 的父路径是 <c>/Game/A</c>；<c>/Game</c> 的父路径是空。</summary>
+    private static string? ParentPath(string path)
+    {
+        var idx = path.LastIndexOf('/');
+        return idx <= 0 ? null : path[..idx];
     }
 
     private static bool IsKards(string path)
@@ -131,10 +192,6 @@ public static class Program
     private static string? GetString(JsonElement o, string name)
         => o.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
-    /// <summary>
-    /// 读函数参数。方向由 flags 判定：
-    /// CPF_ReturnParm → return，CPF_OutParm → out，其余 → in。
-    /// </summary>
     private static List<ParamInfo> ReadParams(JsonElement o)
     {
         var list = new List<ParamInfo>();
@@ -192,6 +249,7 @@ public static class Program
             WriteNullable(w, "outer", value.Outer);
             WriteNullable(w, "class", value.Class);
             WriteNullable(w, "super", value.Super);
+            w.WriteString("source", value.Source);
             w.WriteEndObject();
         }
 
@@ -227,6 +285,7 @@ public static class Program
             w.WriteStartObject(owner);
             w.WriteString("type", info?.Type ?? "Object");
             WriteNullable(w, "super", info?.Super);
+            w.WriteString("source", info?.Source ?? "jmap");
 
             w.WriteStartObject("functions");
             foreach (var f in funcs)
@@ -303,7 +362,7 @@ public static class Program
         }
     }
 
-    private sealed record ObjInfo(string? Type, string? Outer, string? Class, string? Super);
+    private sealed record ObjInfo(string? Type, string? Outer, string? Class, string? Super, string Source);
 
     private sealed record FuncInfo(string Name, string? Flags, List<ParamInfo> Params);
 
