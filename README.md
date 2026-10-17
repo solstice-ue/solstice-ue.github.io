@@ -24,6 +24,7 @@ Solstice 探索一套浏览器优先的工作流，用于检查 Unreal Engine co
 
 - [`docs/vision.md`](docs/vision.md) — **先读这个**：项目定位、目标游戏、已确认的方向与开放问题。
 - [`docs/samples.md`](docs/samples.md) — 本机真实样本清单（路径、大小、版本），以及它们能证明什么。
+- [docs/jmap-analysis.md](docs/jmap-analysis.md) — JMAP 全量分析：CDO / 函数签名 / 能否转 import 表。
 - [`docs/glossary.md`](docs/glossary.md) — 术语表，统一口径。
 - [`docs/ui-design.md`](docs/ui-design.md) — 界面骨架与交互取舍（为什么这么设计）。
 - [`docs/project-structure.md`](docs/project-structure.md) — 解决方案结构、submodule、构建与部署。
