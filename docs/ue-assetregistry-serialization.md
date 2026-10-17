@@ -143,3 +143,26 @@ for each bundle (按 BundleName 排序):
 1. **写出的顺序与排序规则已有权威依据**（本文第 1–5 节）。
 2. **name batch 与 store 的字节布局，应以我们自己的读取器为准** —— 它已能正确解析版本 21 的样本（16,250 个资产、tags 完整），说明其反序列化逻辑与 v21 一致；序列化器镜像它即可，而不是照抄只支持到 18 的第三方实现。
 3. 对齐填充需要按版本判定：实测 v21 样本在 name batch 之后**无填充**。
+
+## 8. CCB-TEAM/AssetRegistryTool 的做法（补充）
+
+该插件**不自己实现序列化**，而是直接调用引擎的 `FAssetRegistryState::Save`：
+
+`Source/AssetRegistryTool/Private/AssetRegistryToolHelper.cpp:118`
+
+```cpp
+FAssetRegistrySerializationOptions SaveOptions;
+SaveOptions.bSerializeAssetRegistry          = true;
+SaveOptions.bSerializeDependencies           = true;
+SaveOptions.bSerializePackageData            = true;
+SaveOptions.bSerializeSearchableNameDependencies = true;
+SaveOptions.bSerializeManageDependencies     = true;
+
+if (!State.Save(Ar, SaveOptions)) { ... }
+```
+
+它只在仓库里 vendor 了 `AssetRegistryArchive.cpp` / `NameTableArchive.cpp`，因为这两个符号属于引擎私有模块，链接需要。
+
+**结论**：所谓「游戏能读的 bin」= **用上面这套选项 + 引擎原生 `Save` 写出来的**。重写的目标因此非常明确：镜像 `FAssetRegistryState::Save` 与 `~FAssetRegistryWriter` 的完整行为，逐字节复现。
+
+`SaveStore` 与 `SaveNameBatch` 仍属引擎内部（`AssetDataTagMapSerializationDetails` / `NameBatchSerialization`），本 fork 里未找到源码，因此**字节布局以我们自己的读取器为准**——它已能正确解析版本 21 的样本。
