@@ -17,6 +17,13 @@ namespace Solstice.Bin;
 public sealed class TagStore
 {
     private int[] _nums = new int[11];
+
+    /// <summary>
+    /// 数组之间是否有 16 字节对齐填充。
+    /// CUE4Parse：<c>AlignPosInArchive</c> 在 <c>version >= MemoryMappedTagDataStore</c> 时
+    /// 把位置对齐到 16。样本 v21 是否启用取决于该阈值，所以两种模式都试。
+    /// </summary>
+    private bool _align16;
     private byte[] _textData = [];
     private byte[] _numberlessNames = [];
     private byte[] _names = [];
@@ -34,6 +41,18 @@ public sealed class TagStore
 
     public static TagStore Parse(byte[] file, int storeStart, int storeEnd)
     {
+        try
+        {
+            return ParseCore(file, storeStart, true);
+        }
+        catch (InvalidOperationException)
+        {
+            return ParseCore(file, storeStart, false);
+        }
+    }
+
+    private static TagStore ParseCore(byte[] file, int storeStart, bool align16)
+    {
         var s = storeStart + 4; // 跳过 BeginMagic
         var nums = new int[11];
         for (var i = 0; i < 11; i++)
@@ -45,16 +64,25 @@ public sealed class TagStore
 
         var textBytes = BinaryPrimitives.ReadInt32LittleEndian(file.AsSpan(s, 4));
         s += 4;
+        s = Align(s, align16);
         var textData = file.AsSpan(s, textBytes).ToArray();
         s += textBytes;
 
-        var store = new TagStore { _nums = nums, _textData = textData };
+        var store = new TagStore { _nums = nums, _textData = textData, _align16 = align16 };
 
+        s = Align(s, align16);
         store._numberlessNames = file.AsSpan(s, nums[0] * 4).ToArray(); s += nums[0] * 4;
+
+        s = Align(s, align16);
         store._names = file.AsSpan(s, nums[1] * 4).ToArray(); s += nums[1] * 4;
+
+        s = Align(s, align16);
         store._numberlessExportPaths = file.AsSpan(s, nums[2] * 16).ToArray(); s += nums[2] * 16;
+
+        s = Align(s, align16);
         store._exportPaths = file.AsSpan(s, nums[3] * 16).ToArray(); s += nums[3] * 16;
 
+        s = Align(s, align16);
         for (var i = 0; i < nums[5]; i++)
         {
             store._ansiOffsets.Add(BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(s + i * 4, 4)));
@@ -62,14 +90,19 @@ public sealed class TagStore
 
         s += nums[5] * 4;
 
+        s = Align(s, align16);
         store._wideOffsets = file.AsSpan(s, nums[6] * 4).ToArray(); s += nums[6] * 4;
 
+        s = Align(s, align16);
         store._ansiStrings = file.AsSpan(s, nums[7]).ToArray(); s += nums[7];
 
+        s = Align(s, align16);
         store._wideStrings = file.AsSpan(s, nums[8] * 2).ToArray(); s += nums[8] * 2;
 
+        s = Align(s, align16);
         store._numberlessPairs = file.AsSpan(s, nums[9] * 8).ToArray(); s += nums[9] * 8;
 
+        s = Align(s, align16);
         for (var i = 0; i < nums[10]; i++)
         {
             var key = BinaryPrimitives.ReadUInt32LittleEndian(file.AsSpan(s + i * 8, 4));
@@ -86,6 +119,8 @@ public sealed class TagStore
 
         return store;
     }
+
+    private static int Align(int pos, bool align16) => align16 ? (pos + 15) & ~15 : pos;
 
     /// <summary>追加一个 AnsiString，返回它的索引（用于拼 valueId）。</summary>
     public uint AddAnsiString(string value)
@@ -129,22 +164,25 @@ public sealed class TagStore
         }
 
         w.Write(_textData.Length);
+        Pad(ms);
         w.Write(_textData);
+        Pad(ms);
 
-        w.Write(_numberlessNames);
-        w.Write(_names);
-        w.Write(_numberlessExportPaths);
-        w.Write(_exportPaths);
+        w.Write(_numberlessNames); Pad(ms);
+        w.Write(_names); Pad(ms);
+        w.Write(_numberlessExportPaths); Pad(ms);
+        w.Write(_exportPaths); Pad(ms);
 
         foreach (var off in _ansiOffsets)
         {
             w.Write(off);
         }
 
-        w.Write(_wideOffsets);
-        w.Write(_ansiStrings);
-        w.Write(_wideStrings);
-        w.Write(_numberlessPairs);
+        Pad(ms);
+        w.Write(_wideOffsets); Pad(ms);
+        w.Write(_ansiStrings); Pad(ms);
+        w.Write(_wideStrings); Pad(ms);
+        w.Write(_numberlessPairs); Pad(ms);
 
         foreach (var (key, value) in _pairs)
         {
@@ -152,9 +190,24 @@ public sealed class TagStore
             w.Write(value);
         }
 
+        Pad(ms);
         w.Write(BinLayout.StoreEndMagic);
 
         w.Flush();
         return ms.ToArray();
+    }
+
+    /// <summary>按 16 字节对齐填充（仅在 <see cref="_align16"/> 时生效）。</summary>
+    private void Pad(MemoryStream ms)
+    {
+        if (!_align16)
+        {
+            return;
+        }
+
+        while (ms.Position % 16 != 0)
+        {
+            ms.WriteByte(0);
+        }
     }
 }
