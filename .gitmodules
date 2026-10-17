@@ -1,3 +1,6 @@
 [submodule "external/UAssetRegistry"]
 	path = external/UAssetRegistry
 	url = https://github.com/CCB-TEAM/UAssetRegistry.git
+[submodule "external/ULocres"]
+	path = external/ULocres
+	url = https://github.com/CCB-TEAM/ULocres.git

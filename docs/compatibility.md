@@ -10,7 +10,8 @@
 | AssetRegistry.bin 头部 | KARDS v21 / 6.2 MB / FilterEditorOnly=1 | 读取 GUID + version | TESTED（已测试） | 十六进制核对，2026-10-17 |
 | AssetRegistry.bin 全量解析（桌面 CLI） | KARDS v21 / 6.2 MB | 解析资产与 tags | TESTED（已测试） | **16250 个资产**，1.4 s；依赖节点 0、包数据 0 |
 | AssetRegistry.bin 全量解析（浏览器 WASM） | KARDS v21 / 6.2 MB | 解析资产与 tags | TESTED（已测试） | **16250 个资产**，5.3 s；与桌面结果一致，UAssetAPI 在 WASM 下可用 |
-| AssetRegistry.bin 语义级回写 | KARDS v21 / 6.2 MB | 写回并读回比对 | TESTED（已测试） | 16250→16251 条；逐条 `ObjectPath`/`AssetClass`/tags/`ChunkIDs`/`PackageFlags` 全一致，**丢失 0**；体积 **-12.3%**（6,459,113 → 5,667,779 B），原因是 tag 值由 WideString 统一重编码为 AnsiString |
+| name batch 哈希 | KARDS v21 / 30417 个 name | 用 ULocres 的 CityHash 重算并与原文件比对 | TESTED（已测试） | **0 个不匹配**。规则：只把 ASCII `A-Z` 转小写，其余原样；ascii 名用 ascii 字节、宽名用 UTF-16LE |
+| AssetRegistry.bin 游戏可读性 | KARDS 客户端 | 导入修改后的 bin | UNVERIFIED（未验证） | 语义级回写曾被游戏拒绝；已补算 name 哈希，待重新实测 |
 | UAssetRegistry 库 | .NET 10 / UAssetAPI 1.1.0 | 在 Blazor WASM 下运行 | TESTED（已测试） | 编成 `Solstice.AssetRegistry` 库后在浏览器解析成功，无 AOT / 反射问题 |
 | KARDS 引擎构建 | `+++UE5+Release-5.6-Fork-2352d15b` | 确认版本标签 | PARTIALLY SUPPORTED（部分支持） | 来自 usmap 文件名；带 `Fork` 字样，非纯官方 5.6 |
 | .uasset 样本集 | 2137 个 / 24.5 MB | 解析包结构 | UNVERIFIED（未验证） | 样本已就位 |

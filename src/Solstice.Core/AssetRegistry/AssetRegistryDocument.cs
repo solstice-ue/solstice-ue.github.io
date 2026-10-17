@@ -138,8 +138,21 @@ public sealed class AssetRegistryDocument
         return true;
     }
 
-    /// <summary>语义级写回。输出是合法的 AssetRegistry.bin，但字节与原文件不同。</summary>
-    public byte[] Save() => AssetRegistryLoader.SaveToBytes(_state);
+    /// <summary>
+    /// 写回。上游写入器会把 name batch 的哈希表写成 0，这里补算回来
+    /// （否则 UE 查不到名字，bin 在游戏里读不了）。
+    /// </summary>
+    public byte[] Save()
+    {
+        var bytes = AssetRegistryLoader.SaveToBytes(_state);
+
+        if (!Solstice.AssetRegistry.NameBatchHasher.TryPatch(bytes, out var error))
+        {
+            throw new InvalidOperationException($"写回后无法修复 name batch 哈希：{error}");
+        }
+
+        return bytes;
+    }
 
     /// <summary>
     /// 逐条快照，用于写回前后比对。包含 tags、ChunkIDs 与 PackageFlags，

@@ -12,6 +12,14 @@
   </ItemGroup>
 
   <!--
+    CityHash 复用团队 ULocres 里的实现（逐行对齐 UE 的 CityHash64），
+    不自己造轮子。name batch 的哈希表必须正确，否则写出的 bin 在游戏里读不了。
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\ULocres\ULocres.csproj" />
+  </ItemGroup>
+
+  <!--
     移植层：直接编译 submodule 里的上游源码，而不是引用它的 exe 项目。
 
     原因：上游 UAssetRegistry.csproj 是 OutputType=Exe（带 Program.cs 的 CLI），
