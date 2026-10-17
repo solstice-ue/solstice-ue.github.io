@@ -340,7 +340,8 @@ else
         var packagePath = PreviewPackagePath;
         var assetName = PreviewAssetName;
 
-        var added = _doc.AddAsset(packagePath, assetName, _assetClassForCard);
+        // 一张卡在注册表里是两条：Blueprint + 它的 _C（BlueprintGeneratedClass）
+        var added = _doc.AddCard(packagePath, assetName);
         if (!added)
         {
             _addError = $"已存在同名资产：{assetName}";
@@ -349,12 +350,12 @@ else
 
         _entries = _doc.GetEntries().ToArray();
         _total = _entries.Length;
-        _addedCount++;
+        _addedCount += 2;
         _search = assetName;
         RefreshView();
 
         _addOpen = false;
-        _message = $"已添加 {assetName}（共 {_total} 条）。记得导出——本次改动只在内存里。";
+        _message = $"已添加 {assetName} 与 {assetName}_C（共 {_total} 条）。记得导出——改动只在内存里。";
     }
 
     private async Task Export()

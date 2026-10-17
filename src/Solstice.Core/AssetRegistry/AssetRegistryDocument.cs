@@ -88,6 +88,56 @@ public sealed class AssetRegistryDocument
         return true;
     }
 
+    /// <summary>
+    /// 新增一张卡牌。**会写两条**：Blueprint 与它的 BlueprintGeneratedClass（`_C`）。
+    ///
+    /// <para>
+    /// 实测依据：KARDS 的 2019 个卡牌 `.uasset` 在注册表里对应 4043 条
+    /// （≈ 2019 × 2），每对都是 `X.X`（Blueprint）+ `X.X_C`（BlueprintGeneratedClass）。
+    /// 两条的 PackageName 相同，只有 AssetName 差一个 `_C`。
+    /// </para>
+    /// </summary>
+    /// <returns>两条都写入返回 true；任一已存在则一条都不写，返回 false。</returns>
+    public bool AddCard(
+        string packagePath,
+        string assetName,
+        IDictionary<string, string>? tags = null,
+        int chunkId = 0)
+    {
+        var dir = packagePath.TrimEnd('/');
+        var packageName = $"{dir}/{assetName}";
+        var classAssetName = assetName + "_C";
+
+        foreach (var existing in _state.PreallocatedAssetDataBuffers)
+        {
+            if (existing.ObjectPath == $"{packageName}.{assetName}" ||
+                existing.ObjectPath == $"{packageName}.{classAssetName}")
+            {
+                return false;
+            }
+        }
+
+        _state.AddAsset(new FAssetData(
+            packageName: packageName,
+            packagePath: dir,
+            assetName: assetName,
+            assetClass: "Blueprint",
+            tagsAndValues: tags,
+            chunkIDs: new[] { chunkId },
+            packageFlags: EPackageFlags.PKG_Cooked));
+
+        _state.AddAsset(new FAssetData(
+            packageName: packageName,
+            packagePath: dir,
+            assetName: classAssetName,
+            assetClass: "BlueprintGeneratedClass",
+            tagsAndValues: null,
+            chunkIDs: new[] { chunkId },
+            packageFlags: EPackageFlags.PKG_Cooked));
+
+        return true;
+    }
+
     /// <summary>语义级写回。输出是合法的 AssetRegistry.bin，但字节与原文件不同。</summary>
     public byte[] Save() => AssetRegistryLoader.SaveToBytes(_state);
 
