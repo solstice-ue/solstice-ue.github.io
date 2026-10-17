@@ -22,6 +22,8 @@ Solstice 探索一套浏览器优先的工作流，用于检查 Unreal Engine co
 
 - [`docs/vision.md`](docs/vision.md) — **先读这个**：项目定位、目标游戏、已确认的方向与开放问题。
 - [`docs/samples.md`](docs/samples.md) — 本机真实样本清单（路径、大小、版本），以及它们能证明什么。
+- [`docs/glossary.md`](docs/glossary.md) — 术语表，统一口径。
+- [`docs/project-structure.md`](docs/project-structure.md) — 解决方案结构、submodule、构建与部署。
 - [`docs/architecture.md`](docs/architecture.md) — 系统边界与核心设计决策。
 - [`docs/implementation-roadmap.md`](docs/implementation-roadmap.md) — 分阶段交付计划与验收标准。
 - [`docs/compatibility.md`](docs/compatibility.md) — 基于证据的兼容性矩阵。

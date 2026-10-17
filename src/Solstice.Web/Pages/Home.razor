@@ -1,0 +1,208 @@
+@page "/"
+@using Solstice.Core.AssetRegistry
+@using Solstice.Core.IO
+
+<PageTitle>Solstice · AssetRegistry 工作台</PageTitle>
+
+<h1 class="h3 mb-3">AssetRegistry 工作台</h1>
+
+<div class="alert alert-warning py-2" role="alert">
+    <strong>原型阶段（Phase 1）。</strong>
+    当前只做两件事：读出文件固定头部、计算 SHA-256。
+    资产列表、新增条目与写回<strong>尚未接入</strong>——见
+    <a href="https://github.com/CCB-TEAM/Solstice/blob/main/docs/implementation-roadmap.md">实现路线图</a>
+    的 Phase 0–3。
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">1 · 载入文件</h2>
+        <InputFile OnChange="OnFileSelected" class="form-control" />
+        <div class="form-text">
+            选择一个 <code>AssetRegistry.bin</code>。上限 @(MaxBytes / 1024 / 1024) MB。
+            文件只在浏览器内处理，不会上传。
+        </div>
+    </div>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger" role="alert">
+        <strong>读取失败：</strong>@_error
+    </div>
+}
+
+@if (_fileName is not null)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h2 class="h5">2 · 文件事实</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-3">文件名</dt>
+                <dd class="col-sm-9"><code>@_fileName</code></dd>
+
+                <dt class="col-sm-3">大小</dt>
+                <dd class="col-sm-9">@FormatSize(_size)</dd>
+
+                <dt class="col-sm-3">SHA-256</dt>
+                <dd class="col-sm-9"><code class="text-break">@_sha256</code></dd>
+            </dl>
+        </div>
+    </div>
+}
+
+@if (_header is not null)
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h2 class="h5">3 · 头部解析</h2>
+
+            @if (_header.GuidMatches)
+            {
+                <p class="text-success mb-2">✓ 文件标识匹配 UE 的 AssetRegistry 现代格式。</p>
+            }
+            else
+            {
+                <p class="text-danger mb-2">
+                    ✗ 文件标识不匹配。这可能不是 AssetRegistry.bin，或是更老的格式——
+                    本读取器不覆盖老格式，也不会假装读懂了它。
+                </p>
+            }
+
+            <dl class="row mb-0">
+                <dt class="col-sm-3">GUID</dt>
+                <dd class="col-sm-9"><code>@_header.GuidHex</code></dd>
+
+                <dt class="col-sm-3">version</dt>
+                <dd class="col-sm-9">
+                    <code>@_header.Version</code>
+                    @if (_header.Version == 21)
+                    {
+                        <span class="badge bg-success ms-2">与 KARDS 实测样本一致</span>
+                    }
+                </dd>
+
+                <dt class="col-sm-3">bFilterEditorOnly</dt>
+                <dd class="col-sm-9"><code>@_header.FilterEditorOnly</code></dd>
+            </dl>
+
+            <hr />
+            <p class="text-muted mb-0 small">
+                资产数组、name 表、FStore 与依赖节点<strong>尚未解析</strong>。
+                这部分要等既有库移植进 WASM 并通过验证（路线图 Phase 0）。
+            </p>
+        </div>
+    </div>
+}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">4 · 新增卡牌条目</h2>
+        <p class="text-muted small">
+            首期唯一用途是添加卡牌资产（命名形如 <code>card_xx_xx</code>）。
+            <strong>尚未实现</strong>：下面的表单只收集字段并预览将要生成的条目，
+            不会写入任何文件。
+        </p>
+
+        <div class="row g-2 mb-2">
+            <div class="col-md-4">
+                <label class="form-label" for="cardName">卡牌 ID</label>
+                <input id="cardName" class="form-control" placeholder="card_01_23"
+                       @bind="_cardName" @bind:event="oninput" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="cardClass">AssetClass</label>
+                <input id="cardClass" class="form-control" placeholder="待实测确认"
+                       @bind="_cardClass" @bind:event="oninput" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="cardPath">PackagePath 前缀</label>
+                <input id="cardPath" class="form-control" placeholder="/Game/..."
+                       @bind="_cardPath" @bind:event="oninput" />
+            </div>
+        </div>
+
+        <div class="border rounded p-2 bg-light small">
+            <div><strong>ObjectPath 预览：</strong><code>@PreviewObjectPath</code></div>
+            <div class="text-muted mt-1">
+                AssetClass 与 PackagePath 前缀必须先对照真实样本实测确认，不得凭印象写死。
+            </div>
+        </div>
+
+        <button class="btn btn-secondary mt-2" disabled title="尚未实现">
+            写入注册表（未实现）
+        </button>
+    </div>
+</div>
+
+@code {
+    private const long MaxBytes = 64L * 1024 * 1024;
+
+    private string? _fileName;
+    private long _size;
+    private string? _sha256;
+    private AssetRegistryHeader? _header;
+    private string? _error;
+
+    private string _cardName = "";
+    private string _cardClass = "";
+    private string _cardPath = "";
+
+    private string PreviewObjectPath
+    {
+        get
+        {
+            var name = string.IsNullOrWhiteSpace(_cardName) ? "card_xx_xx" : _cardName.Trim();
+            var path = string.IsNullOrWhiteSpace(_cardPath) ? "/Game/…" : _cardPath.Trim().TrimEnd('/');
+            return $"{path}/{name}.{name}";
+        }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _error = null;
+        _fileName = null;
+        _sha256 = null;
+        _header = null;
+
+        var file = e.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            byte[] bytes;
+            await using (var stream = file.OpenReadStream(MaxBytes))
+            using (var buffer = new MemoryStream())
+            {
+                await stream.CopyToAsync(buffer);
+                bytes = buffer.ToArray();
+            }
+
+            _fileName = file.Name;
+            _size = bytes.LongLength;
+            _sha256 = FileFingerprint.Sha256(bytes);
+
+            if (!AssetRegistryHeaderReader.TryRead(bytes, out var header, out var error))
+            {
+                _error = error;
+                return;
+            }
+
+            _header = header;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        _ => $"{bytes / 1024.0 / 1024.0:F2} MB"
+    };
+}
