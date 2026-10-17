@@ -1,14 +1,14 @@
-# Experiments
+# 实验
 
-Keep experiments small and reproducible. Each experiment should include:
+保持实验小而可复现。每个实验都应包含：
 
-- Question / hypothesis.
-- Exact dependency versions.
-- Input fixture provenance and redistribution permission.
-- Steps to reproduce.
-- Expected observations.
-- Actual result.
-- Logs or assertions.
-- Conclusion: verified, falsified, or inconclusive.
+- 问题 / 假设。
+- 确切的依赖版本。
+- 输入样本的来源与再分发许可。
+- 复现步骤。
+- 预期的观察结果。
+- 实际结果。
+- 日志或断言。
+- 结论：已验证、已证伪，或无法定论。
 
-Do not commit proprietary assets. Prefer synthetic or explicitly redistributable fixtures. Never turn an inconclusive experiment into a compatibility claim.
+不要提交专有资产。优先使用合成的或明确可再分发的样本。绝不要把无法定论的实验变成兼容性结论。

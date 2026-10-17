@@ -1,6 +1,6 @@
-// Concept sketch only — not yet wired to UAssetAPI.
-// This models high-level intent. A separate compiler must translate it into
-// actual expression objects using APIs verified for the selected UAssetAPI version.
+// 仅为概念草图 —— 尚未接入 UAssetAPI。
+// 这里建模的是高层意图。必须由一个独立的编译器把它翻译成
+// 实际的表达式对象，并使用已针对所选 UAssetAPI 版本验证过的 API。
 
 namespace Solstice.Snippets;
 

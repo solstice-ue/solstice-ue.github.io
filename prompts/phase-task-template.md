@@ -1,37 +1,37 @@
-# Phase Task Template
+# 阶段任务模板
 
-Continue work on Solstice.
+继续 Solstice 的工作。
 
-**Phase:** [phase name/number]
+**Phase（阶段）：** [阶段名称/编号]
 
-**Goal:** [one independently verifiable capability]
+**Goal（目标）：** [一个可独立验证的能力]
 
-## Before implementation
+## 实现之前
 
-1. Inspect existing code, documentation, package versions and working-tree state.
-2. Verify the APIs relevant to this task.
-3. List the files expected to change.
-4. Define acceptance criteria.
-5. Preserve unrelated user changes.
+1. 检查既有代码、文档、包版本与工作区状态。
+2. 核实与本任务相关的 API。
+3. 列出预期会改动的文件。
+4. 定义验收标准。
+5. 保留用户无关的改动。
 
-## Implementation constraints
+## 实现约束
 
-- Follow `AGENTS.md` and `docs/architecture.md`.
-- Do not guess dependency APIs.
-- Do not add fake implementations or inert UI controls.
-- Preserve one-way UKAPI generation.
-- Never reuse package-local indices across assets.
-- Return structured diagnostics for expected failures.
-- Add automated tests for the new behavior.
-- Keep changes focused.
+- 遵循 `AGENTS.md` 与 `docs/architecture.md`。
+- 不要猜测依赖的 API。
+- 不要添加假的实现或无作用的 UI 控件。
+- 保持 UKAPI 的单向生成。
+- 绝不在不同资产之间复用包内局部索引。
+- 对预期内的失败返回结构化诊断。
+- 为新行为添加自动化测试。
+- 保持改动聚焦。
 
-## Before completion
+## 完成之前
 
-1. Run relevant tests.
-2. Run a full build where possible.
-3. Fix regressions caused by this change.
-4. Update the relevant docs.
-5. Report modified files and actual command results.
-6. List known limitations and unverified behavior.
+1. 运行相关测试。
+2. 在可能的情况下运行完整构建。
+3. 修复由本次改动引起的回归。
+4. 更新相关文档。
+5. 报告修改的文件与实际命令结果。
+6. 列出已知限制与未验证的行为。
 
-Do not mark the task complete if acceptance criteria are not met. Work directly in the repository; do not return only suggested code.
+如果验收标准未满足，不要标记任务完成。直接在仓库中工作；不要只返回建议的代码。

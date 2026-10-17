@@ -1,103 +1,103 @@
-# Implementation Roadmap
+# 实现路线图
 
-**Status: Proposed plan. Dates and effort are estimates, not commitments.**
+**状态：拟议中的计划（PROPOSED）。日期与工作量是估计值，不是承诺。**
 
-## Phase 0 — Repository and API reconnaissance
+## Phase 0 — 仓库与 API 侦察
 
-Tasks:
-- Inspect the existing repository, SDK, package versions and build environment.
-- Verify the actual UAssetAPI APIs needed for UAsset loading, FunctionExport discovery, bytecode access, and serialization.
-- Verify whether the selected library supports the target AssetRegistry read/edit/write workflow.
-- Build minimal proof programs before designing wrappers around unverified APIs.
-- Record known formats, versions, and gaps.
+任务：
+- 检查现有仓库、SDK、包版本与构建环境。
+- 验证 UAsset 加载、FunctionExport 发现、字节码访问与序列化所需的实际 UAssetAPI API。
+- 验证所选库是否支持目标 AssetRegistry 读取/编辑/写入工作流。
+- 在为未验证的 API 设计封装之前，先构建最小证明程序。
+- 记录已知的格式、版本与缺口。
 
-Acceptance:
-- Clean build and test baseline.
-- API facts supported by source, documentation, or executable proof.
-- Highest-risk assumptions recorded in compatibility notes.
-- No guessed API in core implementation.
+验收：
+- 干净的构建与测试基线。
+- API 事实由源码、文档或可执行证明支持。
+- 最高风险的假设记录在兼容性说明中。
+- 核心实现中没有猜测出来的 API。
 
-## Phase 1 — Workspace foundation
+## Phase 1 — 工作区基础
 
-Tasks:
-- Establish solution structure and package version management.
-- Add Blazor client and shared domain/application projects as justified by actual code.
-- Implement file selection, loading/error/cancel states, logging, and safe output selection.
-- Add automated tests and CI.
+任务：
+- 建立解决方案结构与包版本管理。
+- 按实际代码的需要，添加 Blazor 客户端与共享的领域/应用项目。
+- 实现文件选择、加载/错误/取消状态、日志记录与安全的输出选择。
+- 添加自动化测试与 CI。
 
-Acceptance:
-- App starts.
-- File loading failures are understandable.
-- Build and tests run in a clean environment.
+验收：
+- 应用可以启动。
+- 文件加载失败可被理解。
+- 构建与测试能在干净环境中运行。
 
-## Phase 2 — AssetRegistry workflow
+## Phase 2 — AssetRegistry 工作流
 
-Tasks:
-- Parse actual supported AssetRegistry data.
-- Present searchable entries and fields.
-- Edit only fields known to be safely writable.
-- Validate and save to a new file.
-- Re-read and validate output.
+任务：
+- 解析实际受支持的 AssetRegistry 数据。
+- 展示可搜索的条目与字段。
+- 只编辑已知可安全写入的字段。
+- 校验并保存到新文件。
+- 重新读取并校验输出。
 
-Acceptance:
-- A permitted fixture completes open → inspect → edit → save → reopen.
-- Unsupported formats are not silently rewritten.
+验收：
+- 一个获准使用的样本能完成 打开 → 检查 → 编辑 → 保存 → 重新打开。
+- 不受支持的格式不会被悄悄重写。
 
-## Phase 3 — Read-only UAsset inspector
+## Phase 3 — 只读 UAsset 检查器
 
-Tasks:
-- Load a UAsset.
-- Display package summary, Imports and Exports.
-- Locate supported FunctionExport objects.
-- Render a read-only expression tree with details and search.
-- Provide explicit fallback diagnostics for unknown expressions.
+任务：
+- 加载一个 UAsset。
+- 显示包摘要、Imports 与 Exports。
+- 定位受支持的 FunctionExport 对象。
+- 渲染带详情与搜索的只读表达式树。
+- 为未知表达式提供明确的兜底诊断。
 
-Acceptance:
-- Fixtures can be inspected without crashing the whole UI on an unsupported expression.
-- Displayed facts can be traced to actual parsed data.
+验收：
+- 样本可以被检查，且不会因为某个不受支持的表达式而导致整个 UI 崩溃。
+- 显示的事实可以追溯到实际解析的数据。
 
-## Phase 4 — UKAPI minimum generator
+## Phase 4 — UKAPI 最小生成器
 
-Tasks:
-- Define FunctionDescription, signature, local variables, statements, arguments, and symbol identities.
-- Add semantic validation.
-- Support a deliberately small set of expressions first.
-- Construct actual expressions through verified APIs.
-- Add deterministic tests and diagnostics.
+任务：
+- 定义 FunctionDescription、签名、局部变量、语句、参数与符号标识。
+- 添加语义校验。
+- 先支持一组刻意保持很小的表达式。
+- 通过已验证的 API 构造实际表达式。
+- 添加确定性测试与诊断。
 
-Acceptance:
-- At least one simple supported function is generated reproducibly.
-- Invalid descriptions fail with actionable diagnostics.
-- Tests do not pretend that generation implies runtime correctness.
+验收：
+- 至少一个简单且受支持的函数可被可复现地生成。
+- 无效的描述会以可据以行动的诊断失败。
+- 测试不会假装生成就意味着运行时正确。
 
-## Phase 5 — AssetLinker and replacement
+## Phase 5 — AssetLinker 与替换
 
-Tasks:
-- Resolve symbols by package path, owner type, function name and signature when available.
-- Search current package Imports/Exports.
-- Construct and deduplicate the correct Import chain.
-- Bind actual package-local FPackageIndex values.
-- Preview the replacement.
-- Write to a new file and re-read it.
+任务：
+- 在可用时按包路径、所属类型、函数名与签名解析符号。
+- 搜索当前包的 Imports/Exports。
+- 构造并去重正确的 Import 链。
+- 绑定实际的包内局部 FPackageIndex 值。
+- 预览替换结果。
+- 写入新文件并重新读取它。
 
-Acceptance:
-- A legally distributable fixture completes the replacement workflow.
-- All generated references pass implemented checks.
-- The output can be re-read by the chosen parser.
-- Runtime behavior is reported separately and requires target-engine/project validation.
+验收：
+- 一个可合法分发的样本能完成替换工作流。
+- 所有生成的引用都通过已实现的检查。
+- 输出能被所选解析器重新读取。
+- 运行时行为单独报告，并且需要目标引擎/工程验证。
 
-## Phase 6 — Metadata preprocessing and expansion
+## Phase 6 — 元数据预处理与扩展
 
-Tasks:
-- Add JMAP indexing and versioned index artifacts.
-- Add optional UHT signature extraction or manual signature import.
-- Add supported expressions and control flow incrementally.
-- Maintain a UE/version compatibility matrix.
-- Measure memory and startup costs before optimization.
+任务：
+- 添加 JMAP 索引与带版本的索引产物。
+- 添加可选的 UHT 签名提取或手工签名导入。
+- 增量添加受支持的表达式与控制流。
+- 维护 UE/版本兼容性矩阵。
+- 在优化之前先测量内存与启动开销。
 
-Acceptance:
-- Each newly supported capability has tests, documented scope and a reproducible validation path.
+验收：
+- 每个新增支持的能力都有测试、成文的范围说明与可复现的验证路径。
 
-## Prioritization rule
+## 优先级规则
 
-Prefer a small end-to-end vertical slice over many untested modules. Verify UAssetAPI, AssetRegistry, bytecode generation and Import construction early; they are higher risk than the UI.
+宁要小而完整的端到端垂直切片，不要许多未测试的模块。尽早验证 UAssetAPI、AssetRegistry、字节码生成与 Import 构造；它们的风险高于 UI。

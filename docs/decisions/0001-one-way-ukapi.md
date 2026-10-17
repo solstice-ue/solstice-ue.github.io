@@ -1,26 +1,26 @@
-# ADR 0001: UKAPI is a One-Way Generator
+# ADR 0001：UKAPI 是单向生成器
 
-- Status: Accepted as a project design principle
-- Date: 2026-10-11
+- 状态：作为项目设计原则已接受（Accepted）
+- 日期：2026-10-11
 
-## Context
+## 背景
 
-A full cooked Blueprint decompiler and bidirectional semantic round-trip editor would substantially expand the scope and uncertainty of the project.
+完整的 cooked Blueprint 反编译器与双向语义往返编辑器会显著扩大项目的范围与不确定性。
 
-## Decision
+## 决定
 
-UKAPI consumes high-level function descriptions and generates supported Kismet structures. It does not promise to convert arbitrary existing bytecode back into the same high-level representation.
+UKAPI 消费高层函数描述并生成受支持的 Kismet 结构。它不承诺把任意既有字节码转换回同一套高层表示。
 
-Read-only bytecode parsing remains allowed for inspection, target discovery and validation.
+只读字节码解析仍被允许，用于检查、目标发现与验证。
 
-## Consequences
+## 后果
 
-Positive:
-- A smaller and more testable compiler surface.
-- Focus on fast function generation/replacement.
-- Less pressure to reconstruct every editor-only Blueprint semantic.
+正面：
+- 更小、更易测试的编译器表面。
+- 聚焦于快速的函数生成/替换。
+- 重建每一个仅编辑器侧 Blueprint 语义的压力更小。
 
-Trade-offs:
-- Existing functions are not generally editable through a lossless high-level reconstruction.
-- Supported generation capabilities must be explicit.
-- Bytecode parsing is still needed for inspection and validation.
+取舍：
+- 既有函数通常无法通过无损的高层重建来编辑。
+- 受支持的生成能力必须明确。
+- 检查和验证仍然需要字节码解析。

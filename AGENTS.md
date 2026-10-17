@@ -1,46 +1,46 @@
-# Repository Instructions for Coding Agents
+# 面向编码代理的仓库说明
 
-## Mission
+## 使命
 
-Develop Solstice incrementally as an evidence-driven technical project. Inspect the current repository before changing it. Preserve existing work.
+以证据驱动的技术项目方式，增量地开发 Solstice。修改之前先检查当前仓库。保留既有工作成果。
 
-## Non-negotiable design rules
+## 不可让步的设计规则
 
-- UKAPI is a **one-way high-level description → Kismet generation** API, not a bidirectional decompiler.
-- Read-only bytecode parsing may be used for target discovery, inspection, and validation; it does not imply semantic round-tripping.
-- The target asset's Import/Export tables are authoritative for package-local references.
-- Never reuse `FPackageIndex` values across different assets.
-- Never assume an Import's `OuterIndex` is always zero.
-- Never assume expression array indices are byte offsets for jump instructions.
-- Do not guess UAssetAPI types, constructors, properties, or methods. Verify the exact package version and API first.
-- Never fake parsing, serialization, validation, or test results.
-- Do not claim runtime correctness based only on successful serialization.
-- Do not overwrite the input asset by default. Write a new output and re-read it for validation.
-- Do not add copyrighted game assets or secrets to the repository.
+- UKAPI 是一个**单向的「高层描述 → Kismet 生成」**API，不是双向反编译器。
+- 只读字节码解析可用于目标发现、检查与验证；它并不意味着语义往返。
+- 对于包内局部引用，目标资产的 Import/Export 表是权威来源。
+- 绝不在不同资产之间复用 `FPackageIndex` 值。
+- 绝不要假定某个 Import 的 `OuterIndex` 总是 0。
+- 绝不要假定表达式数组索引就是跳转指令的字节偏移。
+- 不要猜测 UAssetAPI 的类型、构造函数、属性或方法。先核实确切的包版本与 API。
+- 绝不伪造解析、序列化、验证或测试结果。
+- 不要仅凭序列化成功就声称运行时正确。
+- 默认不要覆盖输入资产。写入新的输出，并重新读取它进行验证。
+- 不要把受版权保护的游戏资产或密钥加入仓库。
 
-## Engineering workflow
+## 工程工作流
 
-For each task:
+对每个任务：
 
-1. Inspect relevant source, docs, dependency versions, and working-tree state.
-2. State the task goal and acceptance criteria.
-3. Make the smallest coherent implementation.
-4. Add or update automated tests.
-5. Run relevant tests and a full build when possible.
-6. Report the actual commands and results; distinguish failures caused by environment constraints.
-7. Update docs and compatibility notes.
-8. List limitations and remaining work.
+1. 检查相关源码、文档、依赖版本与工作区状态。
+2. 说明任务目标与验收标准。
+3. 做最小且自洽的实现。
+4. 添加或更新自动化测试。
+5. 在可能的情况下运行相关测试与完整构建。
+6. 报告实际执行的命令与结果；区分由环境限制导致的失败。
+7. 更新文档与兼容性说明。
+8. 列出限制与剩余工作。
 
-Do not create many empty projects or placeholder classes just to make the tree look complete. A feature is complete only when its core path exists, its behavior is tested, errors are diagnosable, and documentation matches reality.
+不要仅仅为了让目录树看起来完整而创建大量空项目或占位类。一个特性只有在核心路径存在、其行为经过测试、错误可诊断、且文档与现实一致时才算完成。
 
-## Suggested dependency boundaries
+## 建议的依赖边界
 
-- UI depends on application workflows.
-- Domain logic does not depend on Blazor.
-- UAssetAPI-specific behavior stays in infrastructure adapters.
-- UKAPI core generation is independently testable.
-- Metadata indexes describe global symbol identity; asset-local linking resolves references in the current package.
+- UI 依赖应用层工作流。
+- 领域逻辑不依赖 Blazor。
+- UAssetAPI 相关行为留在基础设施适配器中。
+- UKAPI 核心生成可独立测试。
+- 元数据索引描述全局符号标识；资产本地链接在当前包内解析引用。
 
-## Status labels
+## 状态标签
 
-Use explicit labels such as `PROPOSED`, `IMPLEMENTED`, `TESTED`, `PARTIALLY SUPPORTED`, and `UNVERIFIED`. Do not silently upgrade a proposal into a validated capability.
+使用明确的标签，例如 `PROPOSED`（提议）、`IMPLEMENTED`（已实现）、`TESTED`（已测试）、`PARTIALLY SUPPORTED`（部分支持）与 `UNVERIFIED`（未验证）。不要悄悄把提议升级为已验证的能力。
