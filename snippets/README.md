@@ -1,10 +1,18 @@
-# Code Snippets
+# 代码片段
 
-This directory contains small, isolated examples used to discuss domain design. Snippets are not necessarily production-ready and must not be mistaken for a working bytecode compiler.
+本目录包含用于讨论领域设计的小型、相互隔离的示例。片段不一定达到生产可用程度，也绝不能被误认为一个可用的字节码编译器。
 
-Each snippet should document:
-- Purpose.
-- Assumptions and supported scope.
-- Dependencies.
-- Verification status.
-- What it explicitly does not implement.
+每个片段都应记录：
+- 目的。
+- 假设与受支持的范围。
+- 依赖。
+- 验证状态。
+- 它明确不实现的内容。
+
+## 现有片段
+
+| 文件 | 目的 | 验证状态 |
+|---|---|---|
+| [`function-description-model.cs`](function-description-model.cs) | 高层函数描述模型的概念草图 | `PROPOSED`（提议）——未接入 UAssetAPI，未编译验证 |
+
+> 已知缺口：`function-description-model.cs` 尚未按要求写出「假设与范围 / 依赖 / 明确不实现的内容」三节，属于待补项。

@@ -1,37 +1,37 @@
-# Bytecode Generation Notes
+# 字节码生成说明
 
-**Status: Design notes; all format-specific behavior requires verification.**
+**状态：`PROPOSED`（提议）——所有与具体格式相关的行为均为 `UNVERIFIED`（未验证）。**
 
-## Intended pipeline
+## 预期的流水线
 
-1. Validate FunctionDescription.
-2. Resolve symbol identities and signatures.
-3. Validate variables and arguments.
-4. Build control-flow labels.
-5. Construct supported UAssetAPI expression objects.
-6. Calculate serialized layout where needed.
-7. Validate expression structure and references.
-8. Replace the target function in an isolated asset copy.
-9. Serialize to a new file.
-10. Re-read and validate the output.
+1. 校验 FunctionDescription。
+2. 解析符号标识与签名。
+3. 校验变量与参数。
+4. 构建控制流标签。
+5. 构造受支持的 UAssetAPI 表达式对象。
+6. 在需要处计算序列化布局。
+7. 校验表达式结构与引用。
+8. 在隔离的资产副本中替换目标函数。
+9. 序列化到新文件。
+10. 重新读取并校验输出。
 
-## Symbol references
+## 符号引用
 
-A function reference should carry more than a short name. Prefer package/module path, owner class, function name, signature or signature fingerprint, and any required target-object context.
+函数引用不应只携带一个短名称。优先携带包/模块路径、所属类、函数名、签名或签名指纹，以及任何必需的目标对象上下文。
 
-Ambiguous matches must produce diagnostics instead of silently choosing one.
+有歧义的匹配必须产出诊断信息，而不是悄悄选一个。
 
-## Import construction
+## Import 构造
 
-- Search the current package's Exports and Imports first.
-- Deduplicate by full object identity and Outer chain.
-- Construct the necessary outer/package/class/function relationships according to the actual target version and fixture evidence.
-- Never copy package-local FPackageIndex values from global metadata or another asset.
+- 首先搜索当前包的 Exports 与 Imports。
+- 按完整对象标识与 Outer 链去重。
+- 根据实际的目标版本与样本证据，构造所需的 outer/package/class/function 关系。
+- 绝不从全局元数据或另一个资产复制包内局部的 FPackageIndex 值。
 
-## Control flow
+## 控制流
 
-Jump offset representation and serialization rules are version-sensitive. Never assume an expression list index is a byte offset. Verify the behavior against the actual UAssetAPI implementation and a real serialized fixture. Disable unsupported control-flow generation until this is proven.
+跳转偏移的表示与序列化规则对版本敏感。绝不要假定表达式列表索引就是字节偏移。要对照实际的 UAssetAPI 实现与真实的序列化样本验证该行为。在这一点被证明之前，禁用不受支持的控制流生成。
 
-## Validation
+## 验证
 
-A successful serializer call is not sufficient. Re-read the output and check target function identity, supported expression structure, reference validity, and unexpected structural changes. Runtime correctness requires a separate target-engine or target-project validation step.
+序列化器调用成功并不足够。要重新读取输出，检查目标函数标识、受支持的表达式结构、引用合法性，以及意外的结构改动。运行时正确性需要单独的目标引擎或目标工程验证步骤。
