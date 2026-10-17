@@ -47,7 +47,7 @@ public class AssetRegistryDocumentTests
             packagePath: "/Game/Blueprints/Cards/USA/Base/units",
             assetName: assetName,
             assetClass: "Blueprint",
-            tags: new Dictionary<string, string> { ["ParentClass"] = "Class'/Script/Engine.Actor'" });
+            tags: null);
 
         Assert.True(added);
 

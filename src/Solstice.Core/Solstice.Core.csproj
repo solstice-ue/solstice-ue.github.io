@@ -12,6 +12,7 @@
   -->
   <ItemGroup>
     <ProjectReference Include="..\Solstice.AssetRegistry\Solstice.AssetRegistry.csproj" />
+    <ProjectReference Include="..\Solstice.Bin\Solstice.Bin.csproj" />
   </ItemGroup>
 
 </Project>

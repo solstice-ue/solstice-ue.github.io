@@ -31,7 +31,7 @@ public class AssetRegistryRoundTripFidelityTests
             packagePath: "/Game/Blueprints/Cards/USA/Base/units",
             assetName: "card_unit_fidelity_probe",
             assetClass: "Blueprint",
-            tags: new Dictionary<string, string> { ["ParentClass"] = "Class'/Script/Engine.Actor'" });
+            tags: null);
 
         var output = doc.Save();
         var reloaded = AssetRegistryDocument.Load(output);

@@ -12,7 +12,8 @@ public sealed record NewAsset(
     string PackageName,
     string AssetName,
     uint PackageFlags,
-    int ChunkId = 0);
+    int ChunkId = 0,
+    IReadOnlyList<KeyValuePair<string, string>>? Tags = null);
 
 /// <summary>
 /// name batch 的读写。

@@ -28,7 +28,17 @@ public sealed class AssetRegistryDocument
 {
     private readonly FAssetRegistryState _state;
 
-    private AssetRegistryDocument(FAssetRegistryState state) => _state = state;
+    /// <summary>原始字节。写回以它为基底做拼接，不重新序列化。</summary>
+    private readonly byte[] _originalBytes;
+
+    /// <summary>待追加的资产。为空时 Save() 原样返回原始字节。</summary>
+    private readonly List<Solstice.Bin.NewAsset> _pending = new();
+
+    private AssetRegistryDocument(FAssetRegistryState state, byte[] originalBytes)
+    {
+        _state = state;
+        _originalBytes = originalBytes;
+    }
 
     /// <summary>资产条数。</summary>
     public int Count => _state.PreallocatedAssetDataBuffers.Length;
@@ -56,7 +66,7 @@ public sealed class AssetRegistryDocument
 
     /// <summary>解析字节。失败抛异常，由调用方转成可读诊断。</summary>
     public static AssetRegistryDocument Load(byte[] data) =>
-        new(AssetRegistryLoader.LoadFromBytes(data));
+        new(AssetRegistryLoader.LoadFromBytes(data), data);
 
     /// <summary>取出全部条目。16250 条量级，一次性物化可接受。</summary>
     public IReadOnlyList<AssetEntry> GetEntries()
@@ -106,7 +116,12 @@ public sealed class AssetRegistryDocument
             assetClass: assetClass,
             tagsAndValues: tags,
             chunkIDs: new[] { chunkId },
-            packageFlags: EPackageFlags.PKG_Cooked));
+            packageFlags: EPackageFlags.PKG_Cooked,
+            classPackage: "/Script/Engine"));
+
+        _pending.Add(new Solstice.Bin.NewAsset(
+            packagePath.TrimEnd('/'), "/Script/Engine", assetClass, packageName, assetName,
+            (uint)EPackageFlags.PKG_Cooked, chunkId, tags?.ToArray()));
 
         return true;
     }
@@ -160,6 +175,16 @@ public sealed class AssetRegistryDocument
             packageFlags: EPackageFlags.PKG_Cooked,
             classPackage: "/Script/Engine"));
 
+        // 记录到待追加列表：写回时用 Solstice.Bin 做字节级拼接
+        _pending.Add(new Solstice.Bin.NewAsset(
+            dir, "/Script/Engine", "Blueprint", packageName, assetName,
+            (uint)EPackageFlags.PKG_Cooked, chunkId,
+            tags?.ToArray()));
+
+        _pending.Add(new Solstice.Bin.NewAsset(
+            dir, "/Script/Engine", "BlueprintGeneratedClass", packageName, classAssetName,
+            (uint)EPackageFlags.PKG_Cooked, chunkId));
+
         return true;
     }
 
@@ -169,15 +194,13 @@ public sealed class AssetRegistryDocument
     /// </summary>
     public byte[] Save()
     {
-        var bytes = AssetRegistryLoader.SaveToBytes(_state);
-
-        var rebuilt = Solstice.AssetRegistry.NameBatchRebuilder.Rebuild(bytes, out var error);
-        if (rebuilt is null)
+        if (_pending.Count == 0)
         {
-            throw new InvalidOperationException($"写回后无法修复 name batch 哈希：{error}");
+            // 没改动就原样返回：逐字节一致，绝不重新序列化。
+            return (byte[])_originalBytes.Clone();
         }
 
-        return rebuilt;
+        return Solstice.Bin.BinFile.Load(_originalBytes).AppendAssets(_pending);
     }
 
     /// <summary>
