@@ -18,4 +18,16 @@
     <ProjectReference Include="..\Solstice.Core\Solstice.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    GitHub Pages 没有 SPA 回退：直接访问 /assets 这类客户端路由会 404。
+    发布时把 index.html 复制成 404.html，Pages 用它接住未知路径，
+    应用以原 URL 启动后由 Blazor Router 匹配到正确的页面。
+    只复制、不维护第二份源码。
+  -->
+  <Target Name="CopySpaFallbackTo404" AfterTargets="Publish">
+    <Copy SourceFiles="$(PublishDir)wwwroot/index.html"
+          DestinationFiles="$(PublishDir)wwwroot/404.html"
+          Condition="Exists('$(PublishDir)wwwroot/index.html')" />
+  </Target>
+
 </Project>
