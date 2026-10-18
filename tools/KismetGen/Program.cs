@@ -96,7 +96,7 @@ if (args.Length >= 6 && args[0] == "--json")
 
 if (args.Length >= 6)
 {
-    var nodes = new List<KNode> { new AssignNode(args[3], int.Parse(args[4])), new ReturnNode() };
+    var nodes = new List<KNode> { new AssignNode(args[3], new IntArg(int.Parse(args[4]))), new ReturnNode() };
     return Run(nodes, args[0], args[1], args[2], args[5]);
 }
 

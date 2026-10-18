@@ -198,7 +198,7 @@ public static class KismetCompiler
                     {
                         Value = ap,
                         Variable = new EX_LocalVariable { Variable = ap },
-                        Expression = new EX_IntConst { Value = a.Value }
+                        Expression = KismetExprBuilder.ToExpression(a.Value, variables)
                     });
                     break;
 

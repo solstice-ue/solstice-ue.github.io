@@ -25,7 +25,7 @@ public class LoopGenerationTests
 
         var nodes = new List<KNode>
         {
-            new LoopNode(new LocalArg(name), [ new AssignNode(name, 5) ]),
+            new LoopNode(new LocalArg(name), [ new AssignNode(name, new IntArg(5)) ]),
             new ReturnNode()
         };
 

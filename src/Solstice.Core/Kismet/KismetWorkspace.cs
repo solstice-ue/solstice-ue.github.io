@@ -232,7 +232,7 @@ public sealed class KismetWorkspace
             switch (kind)
             {
                 case "assign":
-                    nodes.Add(new AssignNode(n.GetProperty("var").GetString()!, n.GetProperty("value").GetInt32()));
+                    nodes.Add(new AssignNode(n.GetProperty("var").GetString()!, new IntArg(n.GetProperty("value").GetInt32())));
                     break;
 
                 case "assign-bool":

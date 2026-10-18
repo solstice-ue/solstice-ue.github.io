@@ -23,7 +23,7 @@ public class AssignGenerationTests
         var vars = ExpressionWalker.BuildVariableIndex(fn.ScriptBytecode!);
         var name = vars.Keys.First();
 
-        var nodes = new List<KNode> { new AssignNode(name, 9), new ReturnNode() };
+        var nodes = new List<KNode> { new AssignNode(name, new IntArg(9)), new ReturnNode() };
         var exprs = KismetCompiler.CompileToExpressions(nodes, vars);
         Console.WriteLine($"[as] 生成 {exprs.Count} 条: {string.Join(" -> ", exprs.Select(x => x.Inst))}");
 

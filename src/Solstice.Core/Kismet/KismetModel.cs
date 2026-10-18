@@ -86,7 +86,7 @@ public sealed record IfNode(KArg Condition, IReadOnlyList<KNode> Then) : KNode("
 public sealed record ReturnNode() : KNode("Return");
 
 /// <summary>赋值：把常量写进一个已有变量。</summary>
-public sealed record AssignNode(string VariableName, int Value) : KNode($"Set {VariableName} = {Value}");
+public sealed record AssignNode(string VariableName, KArg Value) : KNode($"Set {VariableName}");
 
 /// <summary>
 /// 跨对象调用：在某个对象上调用函数（编译成 EX_Context + EX_FinalFunction）。
