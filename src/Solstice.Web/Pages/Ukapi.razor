@@ -241,20 +241,44 @@
         _instructions = KismetCompiler.Compile(nodes);
     }
 
-    private string NodesJson => $$"""
-{
-  "nodes": [
-    { "kind": "if",
-      "cond": { "var": "{{_conditionVar}}" },
-      "then": [
-        { "kind": "assign", "var": "{{_conditionVar}}", "value": {{_amount}} },
-        { "kind": "context-call", "object": "{{_cardId}}", "function": "AddIntelToCard", "args": [ { "int": {{_amount}} } ] },
-        { "kind": "call", "function": "AddIntelToCard", "args": [ { "var": "{{_cardId}}" } ] },
-        { "kind": "return" }
-      ] }
-  ]
-}
-""";
+    /// <summary>
+    /// 由页面上的节点生成 KismetGen 的 JSON。
+    /// 约定：If 之后的节点都算它的 then 体。
+    /// </summary>
+    private string NodesJson
+    {
+        get
+        {
+            var items = new List<string>();
+            for (var i = 0; i < _nodes.Count; i++)
+            {
+                var node = _nodes[i];
+                if (node.Title == "If")
+                {
+                    var body = _nodes.Skip(i + 1).Select(RenderNode).OfType<string>().ToList();
+                    items.Add($$"""{ "kind": "if", "cond": { "var": "{{_conditionVar}}" }, "then": [ {{string.Join(", ", body)}} ] }""");
+                    break;
+                }
+
+                var single = RenderNode(node);
+                if (single is not null)
+                {
+                    items.Add(single);
+                }
+            }
+
+            return "{\n  \"nodes\": [\n    " + string.Join(",\n    ", items) + "\n  ]\n}";
+        }
+    }
+
+    private string? RenderNode(UiNode node) => node.Title switch
+    {
+        "If" => null,
+        "Return" => "{ \"kind\": \"return\" }",
+        _ when node.Title.StartsWith("Call") =>
+            $"{{ \"kind\": \"context-call\", \"object\": \"{_cardId}\", \"function\": \"AddIntelToCard\", \"args\": [ {{ \"int\": {_amount} }} ] }}",
+        _ => null
+    };
 
     private static string OpcodeColor(string opcode) => opcode switch
     {
