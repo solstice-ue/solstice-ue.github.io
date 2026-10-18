@@ -1,43 +1,34 @@
 using UAssetAPI;
 using UAssetAPI.UnrealTypes;
 using UAssetAPI.Unversioned;
+using UAssetAPI.ExportTypes;
 
 namespace Solstice.Core.Tests;
 
 public class BlueprintBytecodeProbeTests
 {
     [Fact]
-    public void 带usmap解析卡牌蓝图()
+    public void 打印OnPlayedFromHand字节码()
     {
-        var single = Environment.GetEnvironmentVariable("SOLSTICE_BP_FILE");
-        var usmapPath = Environment.GetEnvironmentVariable("SOLSTICE_USMAP");
-        if (string.IsNullOrEmpty(single) || !File.Exists(single)) { Console.WriteLine("[bp] no file"); return; }
+        var single = Environment.GetEnvironmentVariable("SOLSTICE_BP_FILE")!;
+        var usmap = Environment.GetEnvironmentVariable("SOLSTICE_USMAP")!;
+        var asset = new UAsset(single, EngineVersion.VER_UE5_6, new Usmap(usmap));
+        Console.WriteLine($"[bp] {Path.GetFileName(single)}  exports={asset.Exports.Count}");
 
-        UAsset asset;
-        try
+        var funcs = asset.Exports.OfType<FunctionExport>().Where(f => f.ScriptBytecode is { Length: > 0 }).ToArray();
+        Console.WriteLine($"[bp] FunctionExport(带字节码)={funcs.Length}");
+
+        var target = funcs.FirstOrDefault(f => f.ObjectName.ToString().Contains("OnPlayedFromHand"));
+        if (target is null)
         {
-            if (!string.IsNullOrEmpty(usmapPath) && File.Exists(usmapPath))
-            {
-                var mappings = new Usmap(usmapPath);
-                asset = new UAsset(single, EngineVersion.VER_UE5_6, mappings);
-                Console.WriteLine("[bp] 已加载 usmap");
-            }
-            else
-            {
-                asset = new UAsset(single, EngineVersion.VER_UE5_6);
-                Console.WriteLine("[bp] 未加载 usmap");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[bp] 失败: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine("[bp] 未找到 OnPlayedFromHand，列出前 8 个函数：");
+            foreach (var f in funcs.Take(8)) Console.WriteLine($"    {f.ObjectName}  {f.ScriptBytecode!.Length} 条");
             return;
         }
 
-        Console.WriteLine($"[bp] exports={asset.Exports.Count}");
-        foreach (var e in asset.Exports.Take(10))
-        {
-            Console.WriteLine($"    {e.GetType().Name,-18} {e.ObjectName}");
-        }
+        var code = target.ScriptBytecode!;
+        Console.WriteLine($"[bp] === {target.ObjectName}  共 {code.Length} 条 ===");
+        for (var i = 0; i < Math.Min(code.Length, 28); i++)
+            Console.WriteLine($"    {i:000}  {code[i].Inst}");
     }
 }
