@@ -98,3 +98,14 @@ public sealed record AssignNode(string VariableName, int Value) : KNode($"Set {V
 /// </summary>
 public sealed record ContextCallNode(string ObjectVariable, string Function, IReadOnlyList<KArg> Args)
     : KNode($"{ObjectVariable}.{Function}");
+
+/// <summary>
+/// 虚函数调用：编译成 EX_LocalVirtualFunction。
+///
+/// <para>
+/// 函数名以 FName 形式内嵌，必须已存在于目标资产的名字表里，
+/// 因此需要 <see cref="CompileContext.ResolveName"/>。
+/// </para>
+/// </summary>
+public sealed record VirtualCallNode(string Function, IReadOnlyList<KArg> Args)
+    : KNode($"Virtual {Function}");

@@ -125,7 +125,8 @@ public static class KismetCompiler
         IReadOnlyList<KNode> nodes,
         IReadOnlyDictionary<string, KismetPropertyPointer>? variables = null,
         IReadOnlyDictionary<string, FPackageIndex>? functions = null,
-        Func<KismetExpression, uint>? measure = null)
+        Func<KismetExpression, uint>? measure = null,
+        Func<string, FName>? resolveName = null)
     {
         var result = new List<KismetExpression>();
 
@@ -238,6 +239,15 @@ public static class KismetCompiler
                     patches.Add((j, endIdx));
                     break;
                 }
+
+                case VirtualCallNode vc when resolveName is not null:
+                    // 函数名以 FName 内嵌；名字必须已在资产名字表里
+                    result.Add(new EX_LocalVirtualFunction
+                    {
+                        VirtualFunctionName = resolveName(vc.Function),
+                        Parameters = BuildArgs(new CallNode(vc.Function, vc.Args))
+                    });
+                    break;
 
                 case ReturnNode:
                     result.Add(new EX_Return { ReturnExpression = new EX_Nothing() });
