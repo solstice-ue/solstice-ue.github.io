@@ -119,3 +119,23 @@ UAssetAPI 枚举逐条核对，不能直接照抄。
 
 **这直接推翻了当前 demo 编译器的实现**：`KismetCompiler` 现在把跳转目标写成指令索引，
 是错的。正确做法是在序列化阶段按每条指令的**编码后字节长度**累加，得到目标地址。
+
+## 9. EX_Context 的 Offset 是「跳过字节数」
+
+实测 `card_brawl_test1` 的 ExecuteUbergraph：
+
+```
+[001] size=45  Context
+      ObjectExpression  = EX_InstanceVariable
+      Offset            = 23
+      ContextExpression = EX_LocalVirtualFunction   (size = 23)
+```
+
+**`Offset` 等于 `ContextExpression.GetSize()`（23 = 23）。**
+
+含义：对象为 null 时，执行器直接跳过 `Offset` 个字节、不做这次调用——
+是**短路跳过量**，不是 vtable 偏移。
+
+因此生成 `EX_Context` **不需要预先知道目标函数的 vtable 偏移**，
+只要先构造好 `ContextExpression`、再取它的 size 填进 `Offset` 即可。
+这条纠正了此前「跨对象调用靠 vtable 偏移定位」的错误结论。
