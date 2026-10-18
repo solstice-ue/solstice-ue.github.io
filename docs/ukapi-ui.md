@@ -286,3 +286,23 @@ public UsmapBinaryReader(Stream stream, Usmap file)   // 需要 Usmap 实例
 **倾向方案二**：编译器仍然不持有资产，但能拿到准确的长度。
 
 这也解释了为什么 `EX_Context` 目前只是「能构造、能往返」，还没接进 `CompileToExpressions`。
+
+## 16. CompileToExpressions 的节点覆盖（实测）
+
+`CompileToExpressions` 目前只处理四种节点：
+
+```
+AssignNode / CallNode / ContextCallNode / ReturnNode
+```
+
+**`IfNode` 不在其中** —— 它只在旧的 `Compile`（输出 `KismetInstruction[]` 给人看的那条路径）
+里被处理。所以：
+
+| 路径 | 支持 If |
+|---|---|
+| `Compile` → 指令列表（预览用） | ✅ |
+| `CompileToExpressions` → 可序列化字节码 | ❌ |
+
+要让条件分支真正可生成，需要给 `CompileToExpressions` 补 `IfNode`：
+生成 `EX_JumpIfNot` 时**跳转偏移要按字节算**（需要 measure 回调 + 两遍扫描回填），
+不能沿用 `Compile` 里那套「按指令索引」的简化算法。
