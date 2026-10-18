@@ -306,3 +306,39 @@ AssignNode / CallNode / ContextCallNode / ReturnNode
 要让条件分支真正可生成，需要给 `CompileToExpressions` 补 `IfNode`：
 生成 `EX_JumpIfNot` 时**跳转偏移要按字节算**（需要 measure 回调 + 两遍扫描回填），
 不能沿用 `Compile` 里那套「按指令索引」的简化算法。
+
+## 17. IfNode 进 CompileToExpressions 的实现方案（待实施）
+
+障碍：`CompileToExpressions` 现在用「`foreach` + `switch`」平铺处理节点，
+没有可递归的 `EmitNode` 局部函数；而 `IfNode.Then` 是节点列表，必须能递归。
+
+### 步骤
+
+1. **抽出局部递归函数** `void EmitNode(KNode node)`，把现有 `switch` 搬进去，
+   顶层 `foreach (var n in nodes) EmitNode(n);`
+2. **抽出 `KismetExpression BuildArg(KArg arg)`**：现有 `EmitArg` 是「直接 add 到 result」，
+   但 `EX_JumpIfNot` 的条件是**内嵌**的，需要一个「构造但不入列」的版本。
+3. **单遍发射 + 记录待回填**：
+   ```
+   case IfNode f:
+       var jn = new EX_JumpIfNot { BooleanExpression = BuildArg(f.Condition) };
+       result.Add(jn);
+       var elseIdx = result.Count;          // 目标 = body 之后
+       foreach (var n in f.Then) EmitNode(n);
+       var j = new EX_Jump();
+       result.Add(j);
+       var endIdx = result.Count;
+       result.Add(new EX_Nothing());        // else 落点
+       result.Add(new EX_Nothing());        // end 落点
+       patches.Add((jn, elseIdx));
+       patches.Add((j, endIdx));
+   ```
+4. **第二遍按字节回填**：用 `measure` 累加得到每个下标的字节偏移，
+   `jn.CodeOffset = offsets[elseIdx]`、`j.CodeOffset = offsets[endIdx]`。
+   注意 `measure` 对 `EX_JumpIfNot` 已经包含了内嵌条件，所以偏移是真实字节位置。
+
+### 验收
+
+写回资产后读回，断言：
+- `back[0].Inst == "JumpIfNot"`，且 `CodeOffset` 落在 body 之后那条 `Nothing` 的偏移上
+- `EX_Jump` 的 `CodeOffset` 落在最后一条 `Nothing` 上
