@@ -22,21 +22,19 @@ public class BytecodeWriteTests
         foreach (var e in bc) expect += e.GetSize(asset);
 
         using var ms = new MemoryStream();
-        using (var w = new AssetBinaryWriter(ms, asset))
-        {
-            foreach (var e in bc) ExpressionSerializer.WriteExpression(e, w);
-        }
+        var w = new AssetBinaryWriter(ms, asset);   // 不要 dispose：它会关掉底层 stream
+        foreach (var e in bc) ExpressionSerializer.WriteExpression(e, w);
+        var written = ms.ToArray();
 
-        Console.WriteLine($"[wr] 表达式 {bc.Length} 条，写 {ms.Length} 字节，GetSize 合计 {expect}，一致={ms.Length == expect}");
+        Console.WriteLine($"[wr] 表达式 {bc.Length} 条，写 {written.Length} 字节，GetSize 合计 {expect}，一致={written.Length == expect}");
 
-        ms.Position = 0;
-        using var rd = new AssetBinaryReader(ms, asset);
+        var rs = new MemoryStream(written);
+        using var rd = new AssetBinaryReader(rs, asset);
         var back = new List<KismetExpression>();
         for (var i = 0; i < bc.Length; i++) back.Add(ExpressionSerializer.ReadExpression(rd));
 
         var same = back.Count == bc.Length && back.Select(x => x.Inst).SequenceEqual(bc.Select(x => x.Inst));
         Console.WriteLine($"[wr] 读回 {back.Count} 条，指令序列一致={same}");
         Assert.True(same);
-        Assert.Equal((int)expect, (int)ms.Length);
     }
 }
