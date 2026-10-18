@@ -121,6 +121,15 @@ public static class KismetCompiler
     /// 由后续阶段接入（见 <see cref="ExpressionWalker.BuildVariableIndex"/>）。
     /// </para>
     /// </summary>
+    /// <summary>
+    /// 用 <see cref="CompileContext"/> 收敛所有资产本地依赖的重载。
+    /// 新代码应优先使用这个签名，避免参数表继续膨胀。
+    /// </summary>
+    public static IReadOnlyList<KismetExpression> CompileToExpressions(
+        IReadOnlyList<KNode> nodes,
+        CompileContext context)
+        => CompileToExpressions(nodes, context.Variables, context.Functions, context.Measure, context.ResolveName);
+
     public static IReadOnlyList<KismetExpression> CompileToExpressions(
         IReadOnlyList<KNode> nodes,
         IReadOnlyDictionary<string, KismetPropertyPointer>? variables = null,
