@@ -257,12 +257,14 @@
         get
         {
             var items = new List<string>();
-            for (var i = 0; i < _nodes.Count; i++)
+            var order = ExecOrder();
+
+            for (var i = 0; i < order.Count; i++)
             {
-                var node = _nodes[i];
+                var node = order[i];
                 if (node.Title == "If")
                 {
-                    var body = _nodes.Skip(i + 1).Select(RenderNode).OfType<string>().ToList();
+                    var body = order.Skip(i + 1).Select(RenderNode).OfType<string>().ToList();
                     items.Add($$"""{ "kind": "if", "cond": { "var": "{{_conditionVar}}" }, "then": [ {{string.Join(", ", body)}} ] }""");
                     break;
                 }
@@ -323,6 +325,38 @@
         _nodes.RemoveAt(_nodes.Count - 1);
         _connections.RemoveAll(c => c.FromNode == last || c.ToNode == last);
         Recompile();
+    }
+
+    /// <summary>
+    /// 沿 exec 连线推导执行顺序：从没有入边的节点出发，一路跟出边。
+    /// 没被连到的节点补在末尾，避免它们从输出里消失。
+    /// </summary>
+    private List<UiNode> ExecOrder()
+    {
+        var hasIncoming = _connections
+            .Where(c => c.ToPin.StartsWith("in", StringComparison.Ordinal))
+            .Select(c => c.ToNode)
+            .ToHashSet();
+
+        var start = _nodes.FirstOrDefault(n => !hasIncoming.Contains(n.Id)) ?? _nodes.FirstOrDefault();
+        if (start is null)
+        {
+            return [];
+        }
+
+        var order = new List<UiNode>();
+        var seen = new HashSet<int>();
+        UiNode? current = start;
+
+        while (current is not null && seen.Add(current.Id))
+        {
+            order.Add(current);
+            var next = _connections.FirstOrDefault(c => c.FromNode == current.Id && c.FromPin.StartsWith("out", StringComparison.Ordinal));
+            current = next is null ? null : _nodes.FirstOrDefault(n => n.Id == next.ToNode);
+        }
+
+        order.AddRange(_nodes.Where(n => !seen.Contains(n.Id)));
+        return order;
     }
 
     private static string OpcodeColor(string opcode) => opcode switch
