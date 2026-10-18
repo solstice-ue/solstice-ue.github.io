@@ -233,3 +233,26 @@ new KismetPropertyPointer(new FFieldPath { Path = [...], ResolvedOwner = ... })
 | `LoadedProperties` | 生成新函数时按签名排参数顺序 |
 | 新增 Import 条目 | 现在只能复用资产已有的 Import |
 | `/ukapi` 页面接真实字节 | 页面目前只显示指令名；显示字节需要页面上有已加载的 `UAsset`（`AssetBinaryWriter` 需要它） |
+
+## 14. 浏览器内解析资产的可行性
+
+`UAsset` 的构造函数（UAssetAPI 1.1.0）：
+
+```csharp
+public UAsset(string path, ...)                        // 路径式，内部 File.Open(ReadWrite)
+public UAsset(AssetBinaryReader reader, ...)           // 流式，可用于内存字节
+public UAsset(EngineVersion engineVersion = ...)       // 空白资产
+```
+
+**流式构造函数存在**，所以「浏览器里从内存字节解析资产」在 API 层面是可能的。
+
+但有两个现实问题：
+
+1. **UE5 的资产是 `.uasset` + `.uexp` 双文件**，路径式构造函数自己拼接两半；
+   流式构造函数只收一个 reader，需要自己把两半拼成单个流（或确认它支持分离模式）。
+2. **`.usmap` 也是路径式**（`new Usmap(string path)`），浏览器里没有文件系统路径。
+
+所以 `/ukapi` 接真实资产的顺序应该是：
+
+1. 先用「拼接后的单流 + Usmap 从内存构造」做一个小验证（如果 Usmap 也支持流）
+2. 验证不过，就退回到**离线模式**：本地 CLI 生成字节码，页面只负责展示与编辑节点，不直接解析资产
