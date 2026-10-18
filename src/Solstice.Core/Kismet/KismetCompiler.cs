@@ -120,7 +120,9 @@ public static class KismetCompiler
     /// 由后续阶段接入（见 <see cref="ExpressionWalker.BuildVariableIndex"/>）。
     /// </para>
     /// </summary>
-    public static IReadOnlyList<KismetExpression> CompileToExpressions(IReadOnlyList<KNode> nodes)
+    public static IReadOnlyList<KismetExpression> CompileToExpressions(
+        IReadOnlyList<KNode> nodes,
+        IReadOnlyDictionary<string, KismetPropertyPointer>? variables = null)
     {
         var result = new List<KismetExpression>();
 
@@ -131,6 +133,12 @@ public static class KismetCompiler
                 case IntArg i:
                     result.Add(new EX_IntConst { Value = i.Value });
                     break;
+
+                case LocalArg l when variables is not null && variables.TryGetValue(l.Name, out var pointer):
+                    // 复用现有字节码里的属性指针：FFieldPath 自带变量名与归属索引
+                    result.Add(new EX_LocalVariable { Variable = pointer });
+                    break;
+
                 default:
                     result.Add(new EX_Nothing());
                     break;
