@@ -87,3 +87,14 @@ public sealed record ReturnNode() : KNode("Return");
 
 /// <summary>赋值：把常量写进一个已有变量。</summary>
 public sealed record AssignNode(string VariableName, int Value) : KNode($"Set {VariableName} = {Value}");
+
+/// <summary>
+/// 跨对象调用：在某个对象上调用函数（编译成 EX_Context + EX_FinalFunction）。
+///
+/// <para>
+/// 生成 EX_Context 需要 Offset = ContextExpression 的序列化长度，
+/// 而长度依赖资产（FName 索引宽度），所以编译器需要调用方提供 measure 回调。
+/// </para>
+/// </summary>
+public sealed record ContextCallNode(string ObjectVariable, string Function, IReadOnlyList<KArg> Args)
+    : KNode($"{ObjectVariable}.{Function}");
