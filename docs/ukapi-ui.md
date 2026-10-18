@@ -438,3 +438,23 @@ KismetGen --json docs/fixtures/full-program.json <asset> <usmap> ExecuteUbergrap
 | `return` | EX_Return + EX_EndOfScript | TESTED |
 
 未覆盖：循环（EX_ComputedJump 等）、EX_LetBool、EX_CallMath、数组/结构体相关指令。
+
+## 21. 循环的实测样本（未实现）
+
+扫描 card_brawl_test1 的全部函数，用「跳转目标小于自身偏移」识别反向跳转（循环特征）：
+
+```
+getSkirmishBP（10 条）
+  #7 Jump  off=149 -> 43（反向）
+```
+
+`getSkirmishBP` 是资产里唯一带反向跳转的函数，可以作为循环生成的参照样本。
+
+### 实现循环需要的两件事
+
+1. **反向跳转的偏移计算**：现有 `IfNode` 的回填只处理「向后跳」，
+   循环需要「向前跳回」，同样用 `measure` 累加即可，但要允许目标下标小于当前下标。
+2. **节点模型**：需要一个 `LoopNode`（条件 + 循环体），编译成
+   `条件 → JumpIfNot(退出) → 循环体 → Jump(回条件处) → 退出落点`。
+
+现有的两遍回填框架已经支持任意方向的目标，缺的只是模型与分支发射。
