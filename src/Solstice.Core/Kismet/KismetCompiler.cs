@@ -124,7 +124,8 @@ public static class KismetCompiler
     public static IReadOnlyList<KismetExpression> CompileToExpressions(
         IReadOnlyList<KNode> nodes,
         IReadOnlyDictionary<string, KismetPropertyPointer>? variables = null,
-        IReadOnlyDictionary<string, FPackageIndex>? functions = null)
+        IReadOnlyDictionary<string, FPackageIndex>? functions = null,
+        Func<KismetExpression, uint>? measure = null)
     {
         var result = new List<KismetExpression>();
 
@@ -188,6 +189,21 @@ public static class KismetCompiler
                         Expression = new EX_IntConst { Value = a.Value }
                     });
                     break;
+
+                case ContextCallNode cc
+                    when variables is not null && variables.TryGetValue(cc.ObjectVariable, out var objPtr)
+                         && functions is not null && functions.TryGetValue(cc.Function, out var ctxFn):
+                {
+                    var inner = new EX_FinalFunction { StackNode = ctxFn, Parameters = BuildArgs(new CallNode(cc.Function, cc.Args)) };
+                    result.Add(new EX_Context
+                    {
+                        ObjectExpression = new EX_LocalVariable { Variable = objPtr },
+                        ContextExpression = inner,
+                        RValuePointer = objPtr,
+                        Offset = measure?.Invoke(inner) ?? 0
+                    });
+                    break;
+                }
 
                 case ReturnNode:
                     result.Add(new EX_Return { ReturnExpression = new EX_Nothing() });
