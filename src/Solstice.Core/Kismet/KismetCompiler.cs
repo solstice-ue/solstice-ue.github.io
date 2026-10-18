@@ -258,6 +258,37 @@ public static class KismetCompiler
                     });
                     break;
 
+                case LoopNode lp:
+                {
+                    // 循环：条件 → JumpIfNot(退出) → 循环体 → Jump(回条件) → 退出落点
+                    var startIdx = result.Count;
+
+                    KismetExpression cond = lp.Condition switch
+                    {
+                        IntArg i => new EX_IntConst { Value = i.Value },
+                        LocalArg l when variables is not null && variables.TryGetValue(l.Name, out var lpPtr)
+                            => new EX_LocalVariable { Variable = lpPtr },
+                        _ => new EX_Nothing()
+                    };
+
+                    var jn = new EX_JumpIfNot { BooleanExpression = cond };
+                    result.Add(jn);
+
+                    foreach (var n in lp.Body)
+                    {
+                        EmitNode(n);
+                    }
+
+                    var back = new EX_Jump();
+                    result.Add(back);
+                    var afterIdx = result.Count;
+                    result.Add(new EX_Nothing()); // 退出落点
+
+                    patches.Add((jn, afterIdx));
+                    patches.Add((back, startIdx)); // 反向跳回条件处
+                    break;
+                }
+
                 case AssignBoolNode ab when variables is not null && variables.TryGetValue(ab.VariableName, out var bp):
                     // EX_LetBool：变量用表达式表示（不像 EX_Let 还要单独的 Value 指针）
                     result.Add(new EX_LetBool

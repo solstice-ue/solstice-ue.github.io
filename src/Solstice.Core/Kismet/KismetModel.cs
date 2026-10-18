@@ -113,3 +113,9 @@ public sealed record VirtualCallNode(string Function, IReadOnlyList<KArg> Args)
 /// <summary>布尔赋值：编译成 EX_LetBool（VariableExpression + AssignmentExpression）。</summary>
 public sealed record AssignBoolNode(string VariableName, bool Value)
     : KNode($"Set {VariableName} = {(Value ? "true" : "false")}");
+
+/// <summary>
+/// 循环：条件为真时反复执行循环体。
+/// 编译成 条件 → JumpIfNot(退出) → 循环体 → Jump(跳回条件) → 退出落点。
+/// </summary>
+public sealed record LoopNode(KArg Condition, IReadOnlyList<KNode> Body) : KNode("Loop");
