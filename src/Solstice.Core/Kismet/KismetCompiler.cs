@@ -1,3 +1,6 @@
+using UAssetAPI.Kismet.Bytecode;
+using UAssetAPI.Kismet.Bytecode.Expressions;
+
 namespace Solstice.Core.Kismet;
 
 /// <summary>
@@ -106,6 +109,54 @@ public static class KismetCompiler
             result[i] = new KismetInstruction(r.Opcode, r.Operand, target);
         }
 
+        return result;
+    }
+
+    /// <summary>
+    /// 编译成 UAssetAPI 的表达式对象，可直接交给 <c>ExpressionSerializer</c> 序列化。
+    ///
+    /// <para>
+    /// 当前覆盖常量、返回、结束。变量与调用需要属性指针 / FPackageIndex，
+    /// 由后续阶段接入（见 <see cref="ExpressionWalker.BuildVariableIndex"/>）。
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<KismetExpression> CompileToExpressions(IReadOnlyList<KNode> nodes)
+    {
+        var result = new List<KismetExpression>();
+
+        void EmitArg(KArg arg)
+        {
+            switch (arg)
+            {
+                case IntArg i:
+                    result.Add(new EX_IntConst { Value = i.Value });
+                    break;
+                default:
+                    result.Add(new EX_Nothing());
+                    break;
+            }
+        }
+
+        foreach (var node in nodes)
+        {
+            switch (node)
+            {
+                case CallNode c:
+                    foreach (var a in c.Args)
+                    {
+                        EmitArg(a);
+                    }
+
+                    result.Add(new EX_Nothing());
+                    break;
+
+                case ReturnNode:
+                    result.Add(new EX_Return { ReturnExpression = new EX_Nothing() });
+                    break;
+            }
+        }
+
+        result.Add(new EX_EndOfScript());
         return result;
     }
 }
