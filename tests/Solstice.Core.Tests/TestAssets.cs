@@ -17,7 +17,11 @@ public static class TestAssets
 
     public static Copy Prepare(string assetFileName = "card_brawl_test1.uasset")
     {
-        var dir = Path.Combine(Path.GetTempPath(), "solstice-tests", Guid.NewGuid().ToString("N"));
+        // 不要用 Path.GetTempPath()：本机沙箱对临时目录写入会 Access Denied。
+        // 默认落在工作区下的固定目录，可用 SOLSTICE_TEST_TMP 覆盖。
+        var baseDir = Environment.GetEnvironmentVariable("SOLSTICE_TEST_TMP")
+                      ?? @"D:\files\projects\bp-tests";
+        var dir = Path.Combine(baseDir, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
 
         var asset = Path.Combine(dir, "a.uasset");
