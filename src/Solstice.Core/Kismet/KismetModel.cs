@@ -84,3 +84,6 @@ public sealed record CallNode(string Function, IReadOnlyList<KArg> Args) : KNode
 public sealed record IfNode(KArg Condition, IReadOnlyList<KNode> Then) : KNode("If");
 
 public sealed record ReturnNode() : KNode("Return");
+
+/// <summary>赋值：把常量写进一个已有变量。</summary>
+public sealed record AssignNode(string VariableName, int Value) : KNode($"Set {VariableName} = {Value}");

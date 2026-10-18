@@ -179,6 +179,16 @@ public static class KismetCompiler
                     result.Add(new EX_Nothing());
                     break;
 
+                case AssignNode a when variables is not null && variables.TryGetValue(a.VariableName, out var ap):
+                    // EX_Let 需要 Value（指针）与 Variable（表达式）同时给
+                    result.Add(new EX_Let
+                    {
+                        Value = ap,
+                        Variable = new EX_LocalVariable { Variable = ap },
+                        Expression = new EX_IntConst { Value = a.Value }
+                    });
+                    break;
+
                 case ReturnNode:
                     result.Add(new EX_Return { ReturnExpression = new EX_Nothing() });
                     break;
