@@ -5,68 +5,51 @@ using UAssetAPI.ExportTypes;
 namespace Solstice.Core.Tests;
 
 /// <summary>
-/// 用 UAssetAPI 直接读真实蓝图，打印 Kismet 字节码。
-/// 通过 SOLSTICE_BP_DIR 指定目录。
+/// 用 UAssetAPI 读真实蓝图的 Kismet 字节码。
+/// 样本必须放在可写位置（UAssetAPI 用 File.Open，默认 ReadWrite，只读文件会 Access Denied）。
+/// 通过 SOLSTICE_BP_FILE 指定单个 .uasset。
 /// </summary>
 public class BlueprintBytecodeProbeTests
 {
     [Fact]
-    public void 读一个真实蓝图的字节码()
+    public void 读真实蓝图的字节码()
     {
-        var dir = Environment.GetEnvironmentVariable("SOLSTICE_BP_DIR");
-        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+        var single = Environment.GetEnvironmentVariable("SOLSTICE_BP_FILE");
+        if (string.IsNullOrEmpty(single) || !File.Exists(single))
         {
+            Console.WriteLine("[bp] 未指定 SOLSTICE_BP_FILE");
             return;
         }
 
-        var files = new[] { Environment.GetEnvironmentVariable("SOLSTICE_BP_FILE") ?? "" }.Where(x => File.Exists(x)).Select(x => new FileInfo(x)).ToArray();
+        Console.WriteLine($"[bp] 文件: {Path.GetFileName(single)}");
 
-        Console.WriteLine($"[bp] 候选 {files.Length} 个");
-
-        Exception? firstEx = null;
-
-        foreach (var f in files)
+        UAsset asset;
+        try
         {
-            try
-            {
-                var asset = new UAsset(f.FullName, EngineVersion.VER_UE4_27);
-                var withCode = asset.Exports
-                    .OfType<FunctionExport>()
-                    .Where(x => x.ScriptBytecode is { Length: > 0 })
-                    .ToArray();
-
-                if (withCode.Length == 0)
-                {
-                    continue;
-                }
-
-                Console.WriteLine($"[bp] 文件: {f.Name}  ({f.Length:N0} bytes)");
-                Console.WriteLine($"[bp] 带字节码的函数导出: {withCode.Length} 个");
-
-                foreach (var fn in withCode.Take(2))
-                {
-                    Console.WriteLine($"[bp] --- {fn.ObjectName}");
-                    var code = fn.ScriptBytecode!;
-                    for (var i = 0; i < Math.Min(code.Length, 40); i++)
-                    {
-                        Console.WriteLine($"    {i:000}  {code[i].Inst}");
-                    }
-
-                    if (code.Length > 40)
-                    {
-                        Console.WriteLine($"    ... 共 {code.Length} 条表达式");
-                    }
-                }
-
-                return;
-            }
-            catch (Exception ex)
-            {
-                firstEx ??= ex;
-            }
+            asset = new UAsset(single, EngineVersion.VER_UE5_6);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[bp] 打开失败: {ex.GetType().Name}: {ex.Message}");
+            return;
         }
 
-        Console.WriteLine($"[bp] 首个异常: {firstEx?.GetType().Name}: {firstEx?.Message}");
-        Console.WriteLine("[bp] 没找到可解析的带字节码的蓝图");
+        Console.WriteLine($"[bp] 导出数: {asset.Exports.Count}");
+
+        var funcs = asset.Exports.OfType<FunctionExport>().ToArray();
+        Console.WriteLine($"[bp] FunctionExport: {funcs.Length}");
+
+        var withCode = funcs.Where(f => f.ScriptBytecode is { Length: > 0 }).ToArray();
+        Console.WriteLine($"[bp] 带字节码: {withCode.Length}");
+
+        foreach (var fn in withCode.Take(2))
+        {
+            Console.WriteLine($"[bp] --- {fn.ObjectName}  表达式 {fn.ScriptBytecode!.Length} 条");
+            var code = fn.ScriptBytecode!;
+            for (var i = 0; i < Math.Min(code.Length, 30); i++)
+            {
+                Console.WriteLine($"    {i:000}  {code[i].Inst}");
+            }
+        }
     }
 }
