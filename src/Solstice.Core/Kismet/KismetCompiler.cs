@@ -162,7 +162,9 @@ public static class KismetCompiler
             return args.ToArray();
         }
 
-        foreach (var node in nodes)
+        var patches = new List<(KismetExpression Jump, int Target)>();
+
+        void EmitNode(KNode node)
         {
             switch (node)
             {
@@ -205,13 +207,77 @@ public static class KismetCompiler
                     break;
                 }
 
+                case IfNode f:
+                {
+                    // 条件内嵌在 EX_JumpIfNot 里，不单独入列
+                    KismetExpression cond = f.Condition switch
+                    {
+                        IntArg i => new EX_IntConst { Value = i.Value },
+                        LocalArg l when variables is not null && variables.TryGetValue(l.Name, out var lp)
+                            => new EX_LocalVariable { Variable = lp },
+                        _ => new EX_Nothing()
+                    };
+
+                    var jn = new EX_JumpIfNot { BooleanExpression = cond };
+                    result.Add(jn);
+                    var elseIdx = result.Count;
+
+                    foreach (var n in f.Then)
+                    {
+                        EmitNode(n);
+                    }
+
+                    var j = new EX_Jump();
+                    result.Add(j);
+                    var endIdx = result.Count;
+
+                    result.Add(new EX_Nothing()); // else 落点
+                    result.Add(new EX_Nothing()); // end 落点
+
+                    patches.Add((jn, elseIdx));
+                    patches.Add((j, endIdx));
+                    break;
+                }
+
                 case ReturnNode:
                     result.Add(new EX_Return { ReturnExpression = new EX_Nothing() });
                     break;
             }
         }
 
+        foreach (var node in nodes)
+        {
+            EmitNode(node);
+        }
+
         result.Add(new EX_EndOfScript());
+
+        // 第二遍：按字节回填跳转。
+        // EX_Jump / EX_JumpIfNot 的操作数是序列化字节流的偏移，不是表达式下标。
+        if (measure is not null && patches.Count > 0)
+        {
+            var offsets = new uint[result.Count];
+            uint acc = 0;
+            for (var i = 0; i < result.Count; i++)
+            {
+                offsets[i] = acc;
+                acc += measure(result[i]);
+            }
+
+            foreach (var (jump, target) in patches)
+            {
+                var value = target < offsets.Length ? offsets[target] : acc;
+                if (jump is EX_Jump jm)
+                {
+                    jm.CodeOffset = value;
+                }
+                else if (jump is EX_JumpIfNot jn2)
+                {
+                    jn2.CodeOffset = value;
+                }
+            }
+        }
+
         return result;
     }
 }
