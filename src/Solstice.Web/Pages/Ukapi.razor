@@ -10,6 +10,13 @@
         <span class="solstice-muted">@_instructions.Count 条指令 · @_connections.Count 条连线</span>
     </div>
 
+    <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+        <FlareButton Variant="ButtonVariant.Outlined" OnClick="AddAssignNode">+ 赋值</FlareButton>
+        <FlareButton Variant="ButtonVariant.Outlined" OnClick="AddCallNode">+ 调用</FlareButton>
+        <FlareButton Variant="ButtonVariant.Outlined" OnClick="AddReturnNode">+ 返回</FlareButton>
+        <FlareButton Variant="ButtonVariant.Text" OnClick="RemoveLastNode">删除末节点</FlareButton>
+    </div>
+
     <div style="display:grid; grid-template-columns:minmax(300px,1fr) 460px; gap:16px; align-items:start;">
 
         <FlareCard Style="height:72vh; display:flex; flex-direction:column; overflow:hidden">
@@ -279,6 +286,44 @@
             $"{{ \"kind\": \"context-call\", \"object\": \"{_cardId}\", \"function\": \"AddIntelToCard\", \"args\": [ {{ \"int\": {_amount} }} ] }}",
         _ => null
     };
+
+    private void AddAssignNode()
+    {
+        var id = _nodes.Count == 0 ? 0 : _nodes.Max(n => n.Id) + 1;
+        _nodes.Add(new UiNode(id, $"Set {_conditionVar}",
+            [new($"in{id}", "exec", PinType.Exec)],
+            [new($"out{id}", "exec", PinType.Exec)]));
+        Recompile();
+    }
+
+    private void AddCallNode()
+    {
+        var id = _nodes.Count == 0 ? 0 : _nodes.Max(n => n.Id) + 1;
+        _nodes.Add(new UiNode(id, "Call AddIntelToCard",
+            [new($"in{id}", "exec", PinType.Exec), new($"amt{id}", "amount int", PinType.Int)],
+            [new($"out{id}", "exec", PinType.Exec)]));
+        Recompile();
+    }
+
+    private void AddReturnNode()
+    {
+        var id = _nodes.Count == 0 ? 0 : _nodes.Max(n => n.Id) + 1;
+        _nodes.Add(new UiNode(id, "Return", [new($"in{id}", "exec", PinType.Exec)], []));
+        Recompile();
+    }
+
+    private void RemoveLastNode()
+    {
+        if (_nodes.Count == 0)
+        {
+            return;
+        }
+
+        var last = _nodes[^1].Id;
+        _nodes.RemoveAt(_nodes.Count - 1);
+        _connections.RemoveAll(c => c.FromNode == last || c.ToNode == last);
+        Recompile();
+    }
 
     private static string OpcodeColor(string opcode) => opcode switch
     {
