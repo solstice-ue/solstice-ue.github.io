@@ -87,6 +87,17 @@
     <div class="solstice-note" style="margin-top:12px">
         从任一插销按住拖到另一个插销即可连线（同类型才能连）。左侧指令随节点参数实时重编译。
     </div>
+
+    <FlareCard Style="margin-top:12px">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <div class="solstice-card-title" style="margin:0;">喂给 KismetGen 的节点 JSON</div>
+        </div>
+        <pre style="margin:10px 0 0; padding:12px; border-radius:10px; overflow:auto; max-height:220px;
+                    background:var(--flare-color-surface-container-high); font-size:12.5px;">@NodesJson</pre>
+        <div class="solstice-note" style="margin-top:10px;">
+            保存成 nodes.json，然后：<code>KismetGen --json nodes.json &lt;asset&gt; &lt;usmap&gt; &lt;function&gt; &lt;out&gt;</code>
+        </div>
+    </FlareCard>
 </div>
 
 <style>
@@ -229,6 +240,15 @@
         };
         _instructions = KismetCompiler.Compile(nodes);
     }
+
+    private string NodesJson => $$"""
+{
+  "nodes": [
+    { "kind": "call", "function": "AddIntelToCard", "args": [ { "var": "{{_cardId}}" }, { "int": {{_amount}} } ] },
+    { "kind": "return" }
+  ]
+}
+""";
 
     private static string OpcodeColor(string opcode) => opcode switch
     {
