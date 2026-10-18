@@ -177,3 +177,19 @@ public override int Write(AssetBinaryWriter writer)
 
 第 10 节保留作为记录：**同一个错误（只 grep 一次就下结论）我犯了三次**
 （`EX_EndOfScript`、`CityHash`、字节码写入器），根因都是没有读完就判断。
+
+## 12. 属性指针必须构造 New（FFieldPath）形态
+
+尝试 `new KismetPropertyPointer(new FPackageIndex(-12))` 生成 EX_LocalVariable 时抛
+`NullReferenceException`。
+
+原因：UE5.6 的资产走 `ShouldSerializeNew` 分支，序列化时读的是 `New`（FFieldPath），
+而用 `FPackageIndex` 构造只会填 `Old`，`New` 仍为 null。
+
+所以构造指针必须用 New 形态：
+
+```csharp
+new KismetPropertyPointer(new FFieldPath { Path = [...], ResolvedOwner = ... })
+```
+
+实测真实字节码里的 65 个变量表达式**全部**是 `Old=null, New=有`，与此一致。
