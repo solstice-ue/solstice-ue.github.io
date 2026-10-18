@@ -78,6 +78,13 @@ public sealed class KismetWorkspace
 
         var nodes = ParseNodes(json);
         var variables = ExpressionWalker.BuildVariableIndex(fn.ScriptBytecode!);
+
+        // 调用目标若还没出现在 Import 表里，先补一条（克隆现有函数导入的结构）
+        foreach (var target in CollectCallTargets(nodes))
+        {
+            ImportIndex.EnsureFunction(_asset, target);
+        }
+
         var functions = ImportIndex.BuildFunctionIndex(_asset);
 
         var exprs = KismetCompiler.CompileToExpressions(
@@ -126,6 +133,40 @@ public sealed class KismetWorkspace
     private FunctionExport? FindFunction(string name) => _asset.Exports
         .OfType<FunctionExport>()
         .FirstOrDefault(x => x.ObjectName.ToString() == name);
+
+    /// <summary>递归收集节点里所有「按 Import 索引解析」的调用目标。</summary>
+    private static IEnumerable<string> CollectCallTargets(IEnumerable<KNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            switch (node)
+            {
+                case CallNode c:
+                    yield return c.Function;
+                    break;
+
+                case ContextCallNode cc:
+                    yield return cc.Function;
+                    break;
+
+                case IfNode f:
+                    foreach (var t in CollectCallTargets(f.Then))
+                    {
+                        yield return t;
+                    }
+
+                    break;
+
+                case LoopNode lp:
+                    foreach (var b in CollectCallTargets(lp.Body))
+                    {
+                        yield return b;
+                    }
+
+                    break;
+            }
+        }
+    }
 
     /// <summary>解析节点 JSON（与 KismetGen 的 schema 一致）。</summary>
     public static List<KNode> ParseNodes(string json)

@@ -4,7 +4,7 @@ using UAssetAPI.UnrealTypes;
 namespace Solstice.Core.Kismet;
 
 /// <summary>
-/// 从资产的 Import 表建立「函数名 → FPackageIndex」索引。
+/// 从资产的 Import 表建立「函数名 → FPackageIndex」索引，并按需新增条目。
 ///
 /// <para>
 /// EX_FinalFunction 的 StackNode 是 FPackageIndex：正数指向本包 Export，
@@ -13,7 +13,8 @@ namespace Solstice.Core.Kismet;
 /// </para>
 ///
 /// <para>
-/// 生成时复用现有 Import 即可，不必新增——函数集合来自目标资产本身。
+/// 只能复用资产已有的符号名：<c>new FName(asset, name)</c> 会给缺失的名字分配新下标，
+/// 因此新增 Import 时函数名要么已在本包名字表里，要么接受名字表被扩展。
 /// </para>
 /// </summary>
 public static class ImportIndex
@@ -31,7 +32,7 @@ public static class ImportIndex
             }
 
             var name = im.ObjectName?.ToString();
-            if (string.IsNullOrEmpty(name))
+            if (string.IsNullOrEmpty(name) || name == "Default__Function")
             {
                 continue;
             }
@@ -41,5 +42,47 @@ public static class ImportIndex
         }
 
         return index;
+    }
+
+    /// <summary>
+    /// 保证指定函数在 Import 表里有条目，返回它的 FPackageIndex。
+    ///
+    /// <para>
+    /// 已存在则直接返回；不存在时**克隆**一个现有函数导入（沿用它的
+    /// ClassPackage / ClassName / OuterIndex / PackageName），只替换 ObjectName。
+    /// 这样不需要猜测 OuterIndex 链，也不会跨资产复用索引。
+    /// </para>
+    /// </summary>
+    public static FPackageIndex EnsureFunction(UAsset asset, string functionName)
+    {
+        var existing = BuildFunctionIndex(asset);
+        if (existing.TryGetValue(functionName, out var found))
+        {
+            return found;
+        }
+
+        var template = asset.Imports.FirstOrDefault(im =>
+            im.ClassName?.ToString() == "Function" &&
+            im.ObjectName?.ToString() is { Length: > 0 } n &&
+            n != "Default__Function");
+
+        if (template is null)
+        {
+            throw new InvalidOperationException(
+                "资产里没有可作模板的函数导入，无法新增 Import 条目");
+        }
+
+        var clone = new Import(
+            template.ClassPackage,
+            template.ClassName,
+            template.OuterIndex,
+            new FName(asset, functionName),
+            template.bImportOptional)
+        {
+            PackageName = template.PackageName
+        };
+
+        asset.Imports.Add(clone);
+        return new FPackageIndex(-asset.Imports.Count);
     }
 }
