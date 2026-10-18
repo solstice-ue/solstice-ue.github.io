@@ -39,7 +39,7 @@ static List<KNode> ParseList(JsonElement array)
                         else if (x.TryGetProperty("var", out var vv)) args.Add(new LocalArg(vv.GetString()!));
                     }
                 }
-                nodes.Add(new CallNode(n.GetProperty("function").GetString()!, args));
+                nodes.Add(new CallNode(n.GetProperty("function").GetString()!, args, n.TryGetProperty("owner", out var ow) ? ow.GetString() : null));
                 break;
             case "context-call":
                 var cargs = new List<KArg>();
@@ -54,7 +54,8 @@ static List<KNode> ParseList(JsonElement array)
                 nodes.Add(new ContextCallNode(
                     n.GetProperty("object").GetString()!,
                     n.GetProperty("function").GetString()!,
-                    cargs));
+                    cargs,
+                    n.TryGetProperty("owner", out var cow) ? cow.GetString() : null));
                 break;
             case "assign-bool":
                 nodes.Add(new AssignBoolNode(

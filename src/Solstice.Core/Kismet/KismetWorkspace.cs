@@ -80,9 +80,9 @@ public sealed class KismetWorkspace
         var variables = ExpressionWalker.BuildVariableIndex(fn.ScriptBytecode!);
 
         // 调用目标若还没出现在 Import 表里，先补一条（克隆现有函数导入的结构）
-        foreach (var target in CollectCallTargets(nodes))
+        foreach (var (name, owner) in CollectCallTargets(nodes))
         {
-            ImportIndex.EnsureFunction(_asset, target);
+            ImportIndex.EnsureFunction(_asset, name, owner);
         }
 
         var functions = ImportIndex.BuildFunctionIndex(_asset);
@@ -135,18 +135,18 @@ public sealed class KismetWorkspace
         .FirstOrDefault(x => x.ObjectName.ToString() == name);
 
     /// <summary>递归收集节点里所有「按 Import 索引解析」的调用目标。</summary>
-    private static IEnumerable<string> CollectCallTargets(IEnumerable<KNode> nodes)
+    private static IEnumerable<(string Name, string? Owner)> CollectCallTargets(IEnumerable<KNode> nodes)
     {
         foreach (var node in nodes)
         {
             switch (node)
             {
                 case CallNode c:
-                    yield return c.Function;
+                    yield return (c.Function, c.Owner);
                     break;
 
                 case ContextCallNode cc:
-                    yield return cc.Function;
+                    yield return (cc.Function, cc.Owner);
                     break;
 
                 case IfNode f:
@@ -194,14 +194,15 @@ public sealed class KismetWorkspace
                     break;
 
                 case "call":
-                    nodes.Add(new CallNode(n.GetProperty("function").GetString()!, ParseArgs(n)));
+                    nodes.Add(new CallNode(n.GetProperty("function").GetString()!, ParseArgs(n), ReadOwner(n)));
                     break;
 
                 case "context-call":
                     nodes.Add(new ContextCallNode(
                         n.GetProperty("object").GetString()!,
                         n.GetProperty("function").GetString()!,
-                        ParseArgs(n)));
+                        ParseArgs(n),
+                        ReadOwner(n)));
                     break;
 
                 case "virtual-call":
@@ -251,6 +252,9 @@ public sealed class KismetWorkspace
 
         return args;
     }
+
+    private static string? ReadOwner(JsonElement n)
+        => n.TryGetProperty("owner", out var o) ? o.GetString() : null;
 
     private static KArg ParseCond(JsonElement cond)
         => cond.TryGetProperty("int", out var iv)

@@ -7,14 +7,19 @@ namespace Solstice.Core.Kismet;
 /// 从资产的 Import 表建立「函数名 → FPackageIndex」索引，并按需新增条目。
 ///
 /// <para>
-/// EX_FinalFunction 的 StackNode 是 FPackageIndex：正数指向本包 Export，
-/// 负数指向 Import 表。实测 card_brawl_test1 有 48 条 Import，
-/// 其中 ClassName=Function 的条目形如 IsValid(-11) / GetChooseSpawnCards(-12)。
+/// 实测 Import 链的形状（card_brawl_test1）：
 /// </para>
 ///
+/// <code>
+/// #42 idx=-43  /Script/CoreUObject   cls=Package   outer=0     包
+/// #43 idx=-44  /Script/Engine        cls=Package   outer=0
+/// #10 idx=-11  KismetSystemLibrary   cls=Class     outer=-44   类，outer 指向包
+/// #18 idx=-19  IsValid               cls=Function  outer=-11   函数，outer 指向类
+/// </code>
+///
 /// <para>
-/// 只能复用资产已有的符号名：<c>new FName(asset, name)</c> 会给缺失的名字分配新下标，
-/// 因此新增 Import 时函数名要么已在本包名字表里，要么接受名字表被扩展。
+/// 新增条目一律**克隆**同类现有导入，沿用它的 ClassPackage/ClassName/PackageName，
+/// 只替换 ObjectName 与 OuterIndex —— 不猜这些字段的值。
 /// </para>
 /// </summary>
 public static class ImportIndex
@@ -37,7 +42,6 @@ public static class ImportIndex
                 continue;
             }
 
-            // Import 的索引是 1 基负数：第 1 条 = -1
             index.TryAdd(name, new FPackageIndex(-(i + 1)));
         }
 
@@ -45,15 +49,15 @@ public static class ImportIndex
     }
 
     /// <summary>
-    /// 保证指定函数在 Import 表里有条目，返回它的 FPackageIndex。
+    /// 保证函数在 Import 表里有条目，返回它的 FPackageIndex。
     ///
     /// <para>
-    /// 已存在则直接返回；不存在时**克隆**一个现有函数导入（沿用它的
-    /// ClassPackage / ClassName / OuterIndex / PackageName），只替换 ObjectName。
-    /// 这样不需要猜测 OuterIndex 链，也不会跨资产复用索引。
+    /// 给了 <paramref name="ownerClassPath"/>（形如 <c>/Script/Engine.Actor</c>）时，
+    /// 会先补齐 包 → 类 两级导入，再把函数挂到该类下面；
+    /// 没给时退化为沿用模板的 Outer（只适用于与模板同类的函数）。
     /// </para>
     /// </summary>
-    public static FPackageIndex EnsureFunction(UAsset asset, string functionName)
+    public static FPackageIndex EnsureFunction(UAsset asset, string functionName, string? ownerClassPath = null)
     {
         var existing = BuildFunctionIndex(asset);
         if (existing.TryGetValue(functionName, out var found))
@@ -61,28 +65,87 @@ public static class ImportIndex
             return found;
         }
 
-        var template = asset.Imports.FirstOrDefault(im =>
-            im.ClassName?.ToString() == "Function" &&
-            im.ObjectName?.ToString() is { Length: > 0 } n &&
-            n != "Default__Function");
+        var funcTemplate = FindTemplate(asset, "Function", "Default__Function")
+            ?? throw new InvalidOperationException("资产里没有可作模板的函数导入");
 
-        if (template is null)
+        FPackageIndex outer;
+
+        if (!string.IsNullOrWhiteSpace(ownerClassPath))
         {
-            throw new InvalidOperationException(
-                "资产里没有可作模板的函数导入，无法新增 Import 条目");
+            var (packagePath, className) = SplitOwner(ownerClassPath);
+            var packageIndex = EnsurePackage(asset, packagePath);
+            outer = EnsureClass(asset, className, packageIndex);
+        }
+        else
+        {
+            outer = funcTemplate.OuterIndex ?? new FPackageIndex(0);
         }
 
-        var clone = new Import(
-            template.ClassPackage,
-            template.ClassName,
-            template.OuterIndex,
-            new FName(asset, functionName),
-            template.bImportOptional)
+        var clone = CloneAs(funcTemplate, new FName(asset, functionName), outer);
+        asset.Imports.Add(clone);
+        return new FPackageIndex(-asset.Imports.Count);
+    }
+
+    /// <summary>确保包导入存在（cls=Package，outer=0）。</summary>
+    public static FPackageIndex EnsurePackage(UAsset asset, string packagePath)
+    {
+        for (var i = 0; i < asset.Imports.Count; i++)
+        {
+            var im = asset.Imports[i];
+            if (im.ClassName?.ToString() == "Package" && im.ObjectName?.ToString() == packagePath)
+            {
+                return new FPackageIndex(-(i + 1));
+            }
+        }
+
+        var template = FindTemplate(asset, "Package", null)
+            ?? throw new InvalidOperationException("资产里没有可作模板的包导入");
+
+        var clone = CloneAs(template, new FName(asset, packagePath), new FPackageIndex(0));
+        asset.Imports.Add(clone);
+        return new FPackageIndex(-asset.Imports.Count);
+    }
+
+    /// <summary>确保类导入存在（cls=Class，outer=包）。</summary>
+    public static FPackageIndex EnsureClass(UAsset asset, string className, FPackageIndex packageIndex)
+    {
+        for (var i = 0; i < asset.Imports.Count; i++)
+        {
+            var im = asset.Imports[i];
+            if (im.ClassName?.ToString() == "Class"
+                && im.ObjectName?.ToString() == className
+                && im.OuterIndex?.Index == packageIndex.Index)
+            {
+                return new FPackageIndex(-(i + 1));
+            }
+        }
+
+        var template = FindTemplate(asset, "Class", null)
+            ?? throw new InvalidOperationException("资产里没有可作模板的类导入");
+
+        var clone = CloneAs(template, new FName(asset, className), packageIndex);
+        asset.Imports.Add(clone);
+        return new FPackageIndex(-asset.Imports.Count);
+    }
+
+    private static Import? FindTemplate(UAsset asset, string className, string? excludeObject)
+        => asset.Imports.FirstOrDefault(im =>
+            im.ClassName?.ToString() == className &&
+            im.ObjectName?.ToString() is { Length: > 0 } n &&
+            n != excludeObject);
+
+    private static Import CloneAs(Import template, FName objectName, FPackageIndex outer)
+        => new(template.ClassPackage, template.ClassName, outer, objectName, template.bImportOptional)
         {
             PackageName = template.PackageName
         };
 
-        asset.Imports.Add(clone);
-        return new FPackageIndex(-asset.Imports.Count);
+    /// <summary>把 <c>/Script/Engine.Actor</c> 拆成包路径与类名。</summary>
+    public static (string PackagePath, string ClassName) SplitOwner(string ownerClassPath)
+    {
+        var dot = ownerClassPath.LastIndexOf('.');
+        return dot < 0
+            ? (ownerClassPath, ownerClassPath)
+            : (ownerClassPath[..dot], ownerClassPath[(dot + 1)..]);
     }
 }

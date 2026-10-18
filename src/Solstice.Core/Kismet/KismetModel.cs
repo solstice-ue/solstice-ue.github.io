@@ -79,7 +79,7 @@ public sealed record LocalArg(string Name) : KArg(PinType.Int);
 /// <summary>节点（编辑器层的逻辑单元，一行一个）。</summary>
 public abstract record KNode(string Title);
 
-public sealed record CallNode(string Function, IReadOnlyList<KArg> Args) : KNode(Function);
+public sealed record CallNode(string Function, IReadOnlyList<KArg> Args, string? Owner = null) : KNode(Function);
 
 public sealed record IfNode(KArg Condition, IReadOnlyList<KNode> Then) : KNode("If");
 
@@ -96,7 +96,7 @@ public sealed record AssignNode(string VariableName, int Value) : KNode($"Set {V
 /// 而长度依赖资产（FName 索引宽度），所以编译器需要调用方提供 measure 回调。
 /// </para>
 /// </summary>
-public sealed record ContextCallNode(string ObjectVariable, string Function, IReadOnlyList<KArg> Args)
+public sealed record ContextCallNode(string ObjectVariable, string Function, IReadOnlyList<KArg> Args, string? Owner = null)
     : KNode($"{ObjectVariable}.{Function}");
 
 /// <summary>
