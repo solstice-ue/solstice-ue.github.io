@@ -458,3 +458,43 @@ getSkirmishBP（10 条）
    `条件 → JumpIfNot(退出) → 循环体 → Jump(回条件处) → 退出落点`。
 
 现有的两遍回填框架已经支持任意方向的目标，缺的只是模型与分支发射。
+
+## 22. 浏览器内运行 KismetGen 的可行性 —— 已实测通过（TESTED）
+
+第 14 节曾判断「Usmap 只能从路径构造，浏览器内无路径，这是真卡点」。
+**该结论错误**，实测如下。
+
+### 路线 A（推荐）：写虚拟文件 + 按路径构造
+
+```csharp
+File.WriteAllBytes(scratch, usmapBytes);   // 浏览器里就是 Blazor 的内存 VFS
+var usmap = new Usmap(scratch);            // 成功
+```
+
+实测输出：`路线A File.WriteAllBytes + Usmap(path) 成功`
+
+### 路线 B：拼接 uasset + uexp 成单一流
+
+```csharp
+var combined = assetBytes.Concat(uexpBytes).ToArray();
+var reader = new AssetBinaryReader(new MemoryStream(combined), true);
+var asset = new UAsset(reader, EngineVersion.VER_UE5_6, usmap);
+```
+
+实测输出：`拼接流打开成功: Exports=21`
+
+### 失败的那条
+
+`new Usmap(new UsmapBinaryReader(stream, new Usmap()))` → `NullReferenceException`。
+`UsmapBinaryReader` 的 `file` 参数不是可忽略的反向引用，不能靠 `new Usmap()` 占位。
+所以「循环依赖」的说法只对这条路线成立，不影响路线 A。
+
+### 另一个坑（非 WASM 特有）
+
+源 usmap 若带只读属性，`new Usmap(path)` 会抛 `IOException`
+——UAssetAPI 内部用 `File.Open`（默认 ReadWrite）。复制到可写路径即可。
+
+### 结论
+
+**浏览器内完成「解析资产 → 生成字节码 → 写回 → 读回验证」没有已知技术障碍。**
+剩余的是工程成本：UAssetAPI 的 WASM 包体积、大资产的内存占用、下载产物的 UX。
