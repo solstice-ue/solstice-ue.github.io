@@ -56,6 +56,20 @@ static List<KNode> ParseList(JsonElement array)
                     n.GetProperty("function").GetString()!,
                     cargs));
                 break;
+            case "virtual-call":
+            {
+                var vargs = new List<KArg>();
+                if (n.TryGetProperty("args", out var va))
+                {
+                    foreach (var x in va.EnumerateArray())
+                    {
+                        if (x.TryGetProperty("int", out var viv)) vargs.Add(new IntArg(viv.GetInt32()));
+                        else if (x.TryGetProperty("var", out var vvv)) vargs.Add(new LocalArg(vvv.GetString()!));
+                    }
+                }
+                nodes.Add(new VirtualCallNode(n.GetProperty("function").GetString()!, vargs));
+                break;
+            }
             case "if":
             {
                 KArg cond = n.GetProperty("cond").TryGetProperty("int", out var cvi)
@@ -84,7 +98,10 @@ static int Run(List<KNode> nodes, string assetPath, string usmapPath, string fun
     var vars = ExpressionWalker.BuildVariableIndex(fn.ScriptBytecode!);
     var funcs = ImportIndex.BuildFunctionIndex(asset);
 
-    var exprs = KismetCompiler.CompileToExpressions(nodes, vars, funcs, e => e.GetSize(asset));
+    var exprs = KismetCompiler.CompileToExpressions(
+        nodes, vars, funcs,
+        e => e.GetSize(asset),
+        name => new FName(asset, name));
     fn.ScriptBytecode = exprs.ToArray();
     asset.Write(outPath);
 
