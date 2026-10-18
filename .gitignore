@@ -12,3 +12,5 @@ AssetRegistry.bin
 .env
 .env.*
 !.env.example
+
+publish/
