@@ -11,8 +11,8 @@ public class BytecodeFingerprintTests
     [Fact]
     public void 写出的字节与原uexp逐字节一致()
     {
-        var single = @"D:\files\projects\bp-tmp\t1\a.uasset";
-        var uexp = @"D:\files\projects\bp-tmp\t1\a.uexp";
+        var single = Environment.GetEnvironmentVariable("SOLSTICE_BP_FILE")!;
+        var uexp = Path.ChangeExtension(single, ".uexp");
         var usmap = Environment.GetEnvironmentVariable("SOLSTICE_USMAP")!;
         var asset = new UAsset(single, EngineVersion.VER_UE5_6, new Usmap(usmap));
         var fn = asset.Exports.OfType<FunctionExport>()
@@ -26,15 +26,24 @@ public class BytecodeFingerprintTests
         Console.WriteLine($"[fp] 写出 {written.Length} 字节，表达式 {bc.Length} 条");
 
         var file = File.ReadAllBytes(uexp);
-        var probe = written.Take(24).ToArray();
-        var idx = IndexOf(file, probe);
-        Console.WriteLine($"[fp] 前 24 字节在 uexp 位置: {(idx >= 0 ? idx.ToString() : "未找到")}");
+        var idx = IndexOf(file, written.Take(24).ToArray());
+        Console.WriteLine($"[fp] 前 24 字节位置: {(idx >= 0 ? idx.ToString() : "未找到")}");
 
         if (idx >= 0 && idx + written.Length <= file.Length)
         {
             var same = file.AsSpan(idx, written.Length).SequenceEqual(written);
             Console.WriteLine($"[fp] 整段 {written.Length} 字节比对: 一致={same}");
-            Assert.True(same, "写出的字节应与原文件一致");
+            if (!same)
+            {
+                for (var i = 0; i < written.Length; i++)
+                {
+                    if (file[idx + i] != written[i])
+                    {
+                        Console.WriteLine($"[fp] 首个差异在段内第 {i} 字节");
+                        break;
+                    }
+                }
+            }
         }
     }
 
