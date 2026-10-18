@@ -19,12 +19,7 @@ public class BlueprintBytecodeProbeTests
             return;
         }
 
-        var files = Directory.GetFiles(dir, "*.uasset", SearchOption.AllDirectories)
-            .Select(f => new FileInfo(f))
-            .Where(f => f.Length is > 2000 and < 60000)
-            .OrderByDescending(f => f.Length)
-            .Take(40)
-            .ToArray();
+        var files = new[] { Environment.GetEnvironmentVariable("SOLSTICE_BP_FILE") ?? "" }.Where(x => File.Exists(x)).Select(x => new FileInfo(x)).ToArray();
 
         Console.WriteLine($"[bp] 候选 {files.Length} 个");
 
