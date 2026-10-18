@@ -30,11 +30,28 @@ public static class TestAssets
         var uexp = Path.ChangeExtension(asset, ".uexp");
         var usmap = Path.Combine(dir, "kards.usmap");
 
+        // 构建刚结束时源文件句柄可能还没释放，重试几次再放弃
+        static void CopyWithRetry(string from, string to)
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    File.Copy(from, to, true);
+                    return;
+                }
+                catch (IOException) when (attempt < 20)
+                {
+                    Thread.Sleep(100);
+                }
+            }
+        }
+
         lock (Sync)
         {
-            File.Copy(Path.Combine(SourceDir, assetFileName), asset, true);
-            File.Copy(Path.ChangeExtension(Path.Combine(SourceDir, assetFileName), ".uexp"), uexp, true);
-            File.Copy(UsmapPath, usmap, true);
+            CopyWithRetry(Path.Combine(SourceDir, assetFileName), asset);
+            CopyWithRetry(Path.ChangeExtension(Path.Combine(SourceDir, assetFileName), ".uexp"), uexp);
+            CopyWithRetry(UsmapPath, usmap);
 
             foreach (var f in Directory.GetFiles(dir))
             {
