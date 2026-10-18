@@ -21,7 +21,7 @@
                     var ins = _instructions[i];
                     <div style="display:flex; gap:10px; white-space:pre;">
                         <span style="color:var(--flare-color-on-surface-variant); opacity:.6;">@i.ToString("000")</span>
-                        <span style="color:@OpcodeColor(ins.Opcode);">@ins.Opcode</span>
+                        <span style="color:var(--flare-color-on-surface-variant); opacity:.55;">@ins.TokenHex</span>`n                        <span style="color:@OpcodeColor(ins.Opcode);">@ins.Opcode</span>
                         @if (!string.IsNullOrEmpty(ins.Operand))
                         {
                             <span style="color:var(--flare-color-on-surface-variant);">@ins.Operand</span>

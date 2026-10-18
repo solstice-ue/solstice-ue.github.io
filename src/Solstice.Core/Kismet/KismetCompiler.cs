@@ -81,7 +81,7 @@ public static class KismetCompiler
             EmitNode(n);
         }
 
-        Emit("EX_EndOfScript");
+        // UE5 没有 EX_EndOfScript：函数体末尾就是 EX_Return。
 
         // 回填标签 → 指令索引
         var labelIndex = new Dictionary<string, int>(StringComparer.Ordinal);
