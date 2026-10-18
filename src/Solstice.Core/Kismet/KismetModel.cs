@@ -17,7 +17,7 @@ public enum PinType
 /// 用到的操作码及其真实字节值。
 /// 取值来源：UAssetAPI 的 <c>EExprToken</c>（atenfyr/UAssetAPI，对应 UE 5.x）。
 ///
-/// <para>注意：UE5 **没有** <c>EX_EndOfScript</c>，那是 UE3 的；函数结束只有 <c>EX_Return</c>。</para>
+/// <para>实测：<c>EX_EndOfScript</c> **存在**，是函数体的最后一条表达式（见 card_event_burning_fields_skirm 的 OnPlayedFromHand：LetValueOnPersistentFrame → LocalFinalFunction → Return → EndOfScript）。</para>
 /// </summary>
 public static class KismetOpcode
 {
@@ -36,6 +36,7 @@ public static class KismetOpcode
     public const byte IntOne = 0x26;
     public const byte True = 0x27;
     public const byte False = 0x28;
+    public const byte EndOfScript = 0x2F;
 
     /// <summary>名字 → 字节值。未收录的返回 null（UI 显示为 <c>??</c>，提醒补表）。</summary>
     public static byte? Lookup(string name) => name switch
@@ -54,7 +55,7 @@ public static class KismetOpcode
         "EX_IntZero" => IntZero,
         "EX_IntOne" => IntOne,
         "EX_True" => True,
-        "EX_False" => False,
+        "EX_False" => False,`r`n        "EX_EndOfScript" => EndOfScript,
         _ => null
     };
 }
