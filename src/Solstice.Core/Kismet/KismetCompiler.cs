@@ -1,17 +1,39 @@
 namespace Solstice.Core.Kismet;
 
 /// <summary>
-/// UKAPI 最小编译器：把平铺节点列表编译成 `EX_` 指令序列。
+/// UKAPI 最小编译器：平铺节点 → EX_ 指令序列。
 ///
 /// <para>
-/// 这一版只负责**生成指令列表**（供左栏预览），不负责序列化进 uasset。
-/// 控制流用「占位标签 + 回填」的方式生成跳转目标，与真实字节码的
-/// `EX_Jump` / `EX_JumpIfNot` 偏移语义一致（跳转指向表达式索引）。
+/// <b>跳转用字节偏移，不是表达式下标。</b>实测 card_brawl_test1 的 ExecuteUbergraph：
+/// JumpIfNot 的 CodeOffset 是 199 / 619，Jump 的是 1433，而函数只有 56 条表达式。
+/// 所以这里先按占位偏移生成，再用每条指令的编码长度累加回填。
+/// </para>
+///
+/// <para>
+/// 长度表来自 UAssetAPI 的 <c>KismetExpression.GetSize</c>：Jump=5（1 opcode + 4 偏移）。
 /// </para>
 /// </summary>
 public static class KismetCompiler
 {
-    private sealed record Raw(string Opcode, string Operand, string? Label, string? TargetLabel);
+    private sealed class Raw
+    {
+        public string Opcode = "";
+        public string Operand = "";
+        public string? Label;
+        public string? TargetLabel;
+        public int Size = 1;
+    }
+
+    /// <summary>各操作码的编码字节数（不含跳转偏移以外的可变部分）。</summary>
+    private static int SizeOf(string opcode) => opcode switch
+    {
+        "EX_LocalVariable" or "EX_InstanceVariable" => 9,  // opcode + FKismetPropertyPointer(8)
+        "EX_IntConst" => 5,                                 // opcode + int32
+        "EX_FinalFunction" or "EX_VirtualFunction" => 5,    // opcode + int32 package index
+        "EX_Jump" => 5,                                     // opcode + int32 偏移
+        "EX_JumpIfNot" => 5,
+        _ => 1                                              // Nothing / Return / EndOfScript / EndFunctionParms
+    };
 
     public static IReadOnlyList<KismetInstruction> Compile(IReadOnlyList<KNode> nodes)
     {
@@ -19,21 +41,15 @@ public static class KismetCompiler
         var labelSeq = 0;
 
         void Emit(string opcode, string operand = "", string? label = null, string? target = null)
-            => raw.Add(new Raw(opcode, operand, label, target));
+            => raw.Add(new Raw { Opcode = opcode, Operand = operand, Label = label, TargetLabel = target, Size = SizeOf(opcode) });
 
         void EmitArg(KArg arg)
         {
             switch (arg)
             {
-                case IntArg i:
-                    Emit("EX_IntConst", i.Value.ToString());
-                    break;
-                case LocalArg l:
-                    Emit("EX_LocalVariable", l.Name);
-                    break;
-                default:
-                    Emit("EX_Nothing", "<unsupported arg>");
-                    break;
+                case IntArg i: Emit("EX_IntConst", i.Value.ToString()); break;
+                case LocalArg l: Emit("EX_LocalVariable", l.Name); break;
+                default: Emit("EX_Nothing", "<unsupported>"); break;
             }
         }
 
@@ -42,11 +58,7 @@ public static class KismetCompiler
             switch (node)
             {
                 case CallNode c:
-                    foreach (var a in c.Args)
-                    {
-                        EmitArg(a);
-                    }
-
+                    foreach (var a in c.Args) EmitArg(a);
                     Emit("EX_FinalFunction", c.Function);
                     Emit("EX_EndFunctionParms");
                     break;
@@ -55,15 +67,9 @@ public static class KismetCompiler
                 {
                     var elseLabel = $"L{labelSeq++}";
                     var endLabel = $"L{labelSeq++}";
-
                     EmitArg(f.Condition);
                     Emit("EX_JumpIfNot", "", null, elseLabel);
-
-                    foreach (var n in f.Then)
-                    {
-                        EmitNode(n);
-                    }
-
+                    foreach (var n in f.Then) EmitNode(n);
                     Emit("EX_Jump", "", null, endLabel);
                     Emit("EX_Nothing", "", elseLabel);
                     Emit("EX_Nothing", "", endLabel);
@@ -76,33 +82,27 @@ public static class KismetCompiler
             }
         }
 
-        foreach (var n in nodes)
-        {
-            EmitNode(n);
-        }
-
+        foreach (var n in nodes) EmitNode(n);
         Emit("EX_EndOfScript");
 
-        // 回填标签 → 指令索引
-        var labelIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        // 第一遍：算出每条指令的起始字节偏移
+        var offsets = new int[raw.Count];
+        var acc = 0;
         for (var i = 0; i < raw.Count; i++)
         {
-            if (raw[i].Label is { } l)
-            {
-                labelIndex[l] = i;
-            }
+            offsets[i] = acc;
+            acc += raw[i].Size;
         }
+
+        var labelOffset = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < raw.Count; i++)
+            if (raw[i].Label is { } l) labelOffset[l] = offsets[i];
 
         var result = new KismetInstruction[raw.Count];
         for (var i = 0; i < raw.Count; i++)
         {
             var r = raw[i];
-            int? target = null;
-            if (r.TargetLabel is { } tl && labelIndex.TryGetValue(tl, out var idx))
-            {
-                target = idx;
-            }
-
+            int? target = r.TargetLabel is { } tl && labelOffset.TryGetValue(tl, out var o) ? o : null;
             result[i] = new KismetInstruction(r.Opcode, r.Operand, target);
         }
 
