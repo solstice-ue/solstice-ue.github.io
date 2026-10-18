@@ -103,7 +103,20 @@ public sealed class KismetWorkspace
         return shown.Replace("\r", "\\r").Replace("\n", "\\n");
     }
 
-    public (IReadOnlyList<string> Opcodes, string Hex, int Bytes) Generate(IReadOnlyList<KNode> nodes, string functionName)
+    /// <summary>
+    /// 只编译、不写回函数。用于编辑时的实时预览。
+    /// 注意：仍会按需补 Import 条目（幂等）。
+    /// </summary>
+    public (IReadOnlyList<string> Opcodes, string Hex, int Bytes) Preview(
+        IReadOnlyList<KNode> nodes, string functionName)
+        => Compile(nodes, functionName, assign: false);
+
+    public (IReadOnlyList<string> Opcodes, string Hex, int Bytes) Generate(
+        IReadOnlyList<KNode> nodes, string functionName)
+        => Compile(nodes, functionName, assign: true);
+
+    private (IReadOnlyList<string> Opcodes, string Hex, int Bytes) Compile(
+        IReadOnlyList<KNode> nodes, string functionName, bool assign)
     {
         var fn = FindFunction(functionName)
                  ?? throw new InvalidOperationException($"找不到函数: {functionName}");
@@ -125,7 +138,10 @@ public sealed class KismetWorkspace
                 Measure: e => e.GetSize(_asset),
                 ResolveName: n => new FName(_asset, n)));
 
-        fn.ScriptBytecode = exprs.ToArray();
+        if (assign)
+        {
+            fn.ScriptBytecode = exprs.ToArray();
+        }
 
         var ms = new MemoryStream();
         var writer = new AssetBinaryWriter(ms, _asset);

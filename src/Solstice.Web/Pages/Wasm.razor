@@ -4,11 +4,11 @@
 @using Solstice.Core.Pak
 @inject IJSRuntime JS
 
-<PageTitle>Solstice · WASM 生成</PageTitle>
+<PageTitle>Solstice · 生成</PageTitle>
 
-<div class="solstice-page">
+<div class="solstice-page" style="max-width:none">
     <div class="solstice-head">
-        <h1 class="solstice-h1">WASM · 浏览器内生成</h1>
+        <h1 class="solstice-h1">蓝图生成</h1>
         <span class="solstice-spacer"></span>
         <span class="solstice-muted">@_status</span>
     </div>
@@ -19,141 +19,250 @@
             <label class="w-file"><span>.uasset</span><InputFile OnChange="OnUassetAsync" accept=".uasset" /></label>
             <label class="w-file"><span>.uexp</span><InputFile OnChange="OnUexpAsync" accept=".uexp" /></label>
             <label class="w-file"><span>.usmap</span><InputFile OnChange="OnUsmapAsync" accept=".usmap" /></label>
-        </div>
-        <div style="margin-top:12px;">
             <FlareButton Variant="ButtonVariant.Filled" OnClick="LoadAsync" Disabled="@(!_ready)">载入</FlareButton>
         </div>
     </FlareCard>
 
-    @if (_functions.Count > 0)
+    @if (_ws is not null)
     {
         <FlareCard Style="margin-top:12px">
-            <div class="solstice-card-title">2. 选择函数</div>
-            <div style="margin-top:10px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <span class="solstice-card-title" style="margin:0;">2. 函数</span>
                 <select class="w-select" value="@_selected" @onchange="OnFunctionChanged">
                     @foreach (var f in _functions) { <option value="@f">@f</option> }
                 </select>
-                <span class="solstice-muted">可用变量：</span>
-                @foreach (var v in _variables.Take(8))
-                {
-                    <span class="w-chip" @onclick="@(() => UseVariable(v))">@v</span>
-                }
+                <span class="solstice-muted">变量 @_variables.Count · 可导入函数 @_importChoices.Count · 本资产函数 @_localChoices.Count</span>
             </div>
         </FlareCard>
 
         <FlareCard Style="margin-top:12px">
-            <div class="solstice-card-title">3. 节点</div>
-            <table class="w-table">
-                <thead>
-                    <tr><th>类型</th><th>变量</th><th>值</th><th>函数</th><th>owner（可选）</th><th></th></tr>
-                </thead>
-                <tbody>
-                    @for (var i = 0; i < _specs.Count; i++)
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <span class="solstice-card-title" style="margin:0;">3. 节点</span>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("assign"))">+ 赋值</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("assign-bool"))">+ 布尔赋值</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("call"))">+ 调用</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("context-call"))">+ 跨对象调用</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("virtual-call"))">+ 虚调用</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("return"))">+ 返回</FlareButton>
+            </div>
+
+            <div class="w-canvas" style="height:@(_specs.Count * RowHeight)px; margin-top:10px;"
+                 @onmousemove="OnMouseMove" @onmouseup="OnMouseUp" @onmouseleave="OnMouseUp">
+                <svg width="100%" height="@(_specs.Count * RowHeight)"
+                     style="position:absolute; left:0; top:0; pointer-events:none;">
+                    @foreach (var c in _links)
                     {
-                        var idx = i;
-                        var spec = _specs[idx];
-                        <tr>
-                            <td>
-                                <select class="w-select-sm" value="@spec.Kind" @onchange="@(e => spec.Kind = e.Value?.ToString() ?? "assign")">
-                                    <option value="assign">赋值</option>
-                                    <option value="assign-bool">布尔赋值</option>
-                                    <option value="call">调用</option>
-                                    <option value="context-call">跨对象调用</option>
-                                    <option value="virtual-call">虚调用</option>
-                                    <option value="return">返回</option>
-                                </select>
-                            </td>
-                            <td><input class="w-input" @bind="spec.Var" @bind:event="oninput" placeholder="变量名" /></td>
-                            <td><input class="w-input" type="number" @bind="spec.Value" @bind:event="oninput" /></td>
-                            <td><input class="w-input" @bind="spec.Function" @bind:event="oninput" placeholder="函数名" /></td>
-                            <td><input class="w-input" @bind="spec.Owner" @bind:event="oninput" placeholder="/Script/Engine.Actor" /></td>
-                            <td><FlareButton Variant="ButtonVariant.Text" OnClick="@(() => RemoveAt(idx))">删除</FlareButton></td>
-                        </tr>
+                        var a = PinPoint(c.From, true);
+                        var b = PinPoint(c.To, false);
+                        <path d="@Curve(a, b)" stroke="#6750a4" stroke-width="2" fill="none" />
                     }
-                </tbody>
-            </table>
-            <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <FlareButton Variant="ButtonVariant.Outlined" OnClick="AddNode">+ 添加节点</FlareButton>
-                <FlareButton Variant="ButtonVariant.Filled" OnClick="Generate">生成</FlareButton>
-                <FlareButton Variant="ButtonVariant.Outlined" OnClick="DownloadAsync" Disabled="@(_saved is null)">下载 uasset/uexp</FlareButton>
-            </div>
+                    @if (_dragFrom is { } df && _dragPos is { } dp)
+                    {
+                        <path d="@Curve(PinPoint(df, true), dp)" stroke="var(--flare-color-primary)"
+                              stroke-width="2" stroke-dasharray="4 3" fill="none" />
+                    }
+                </svg>
 
-            <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <span class="solstice-muted">pak 内路径：</span>
-                <input class="w-input" style="max-width:400px;" @bind="_contentPath" @bind:event="oninput"
-                       placeholder="Blueprints/Cards/card_brawl_test1" />
-                <FlareButton Variant="ButtonVariant.Filled" OnClick="DownloadPakAsync" Disabled="@(_saved is null)">下载 .pak</FlareButton>
-            </div>
-            <div class="solstice-muted" style="margin-top:6px; font-size:12px;">
-                mount point 固定 <code>../../../kards/Content/</code>，条目名为「路径 + .uasset/.uexp」。
-            </div>
-        </FlareCard>
-
-        <FlareCard Style="margin-top:12px">
-            <div class="solstice-card-title">4. 生成的节点 JSON</div>
-            <pre class="w-pre">@NodesJson</pre>
-        </FlareCard>
-    }
-
-    @if (_opcodes.Count > 0)
-    {
-        <FlareCard Style="margin-top:12px">
-            <div class="solstice-card-title">5. 生成结果 · @_byteCount 字节</div>
-            <div style="margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:13px;">
-                @for (var i = 0; i < _opcodes.Count; i++)
+                @for (var i = 0; i < _specs.Count; i++)
                 {
-                    <div><span style="opacity:.45">@i.ToString("000")</span>  @_opcodes[i]</div>
+                    var row = i;
+                    var spec = _specs[row];
+                    <div class="w-node" style="top:@(row * RowHeight)px;">
+                        <span class="w-pin @(_dragFrom == row ? "w-pin-active" : "")"
+                              title="执行连线（拖到别的节点）"
+                              @onmousedown:preventDefault="true"
+                              @onmousedown="@(() => StartDrag(row))"
+                              @onmouseup="@(() => EndDrag(row))"></span>
+
+                        <select class="w-select-sm" value="@spec.Kind" @onchange="@(e => ChangeKind(spec, e))">
+                            <option value="assign">赋值</option>
+                            <option value="assign-bool">布尔赋值</option>
+                            <option value="call">调用</option>
+                            <option value="context-call">跨对象调用</option>
+                            <option value="virtual-call">虚调用</option>
+                            <option value="return">返回</option>
+                        </select>
+
+                        @if (spec.Kind is "assign" or "assign-bool" or "context-call")
+                        {
+                            <span class="w-lbl">变量</span>
+                            <select class="w-select-sm" value="@spec.Var"
+                                    @onchange="@(e => { spec.Var = e.Value?.ToString() ?? ""; Refresh(); })">
+                                @foreach (var v in _variables) { <option value="@v">@v</option> }
+                            </select>
+                        }
+
+                        @if (spec.Kind == "assign")
+                        {
+                            <span class="w-lbl">值</span>
+                            <input class="w-input w-num" type="number" @bind="spec.Value" @bind:after="Refresh" />
+                        }
+                        else if (spec.Kind == "assign-bool")
+                        {
+                            <span class="w-lbl">值</span>
+                            <select class="w-select-sm" value="@spec.BoolValue.ToString()"
+                                    @onchange="@(e => { spec.BoolValue = e.Value?.ToString() == "True"; Refresh(); })">
+                                <option value="True">true</option>
+                                <option value="False">false</option>
+                            </select>
+                        }
+
+                        @if (spec.Kind is "call" or "context-call")
+                        {
+                            <span class="w-lbl">函数</span>
+                            <select class="w-select-sm w-wide" value="@spec.Function"
+                                    @onchange="@(e => { spec.Function = e.Value?.ToString() ?? ""; Refresh(); })">
+                                <option value="">（选择已导入函数）</option>
+                                @foreach (var f in _importChoices) { <option value="@f">@f</option> }
+                            </select>
+                        }
+
+                        @if (spec.Kind == "virtual-call")
+                        {
+                            <span class="w-lbl">函数</span>
+                            <select class="w-select-sm w-wide" value="@spec.Function"
+                                    @onchange="@(e => { spec.Function = e.Value?.ToString() ?? ""; Refresh(); })">
+                                <option value="">（选择本资产函数）</option>
+                                @foreach (var f in _localChoices) { <option value="@f">@f</option> }
+                            </select>
+                        }
+
+                        @if (spec.Kind is "call" or "context-call" or "virtual-call")
+                        {
+                            <span class="w-lbl">参数</span>
+                            <select class="w-select-sm" value="@spec.ArgKind"
+                                    @onchange="@(e => { spec.ArgKind = e.Value?.ToString() ?? "none"; Refresh(); })">
+                                <option value="none">无</option>
+                                <option value="var">变量</option>
+                                <option value="int">整数</option>
+                            </select>
+                            @if (spec.ArgKind == "var")
+                            {
+                                <select class="w-select-sm" value="@spec.ArgVar"
+                                        @onchange="@(e => { spec.ArgVar = e.Value?.ToString() ?? ""; Refresh(); })">
+                                    @foreach (var v in _variables) { <option value="@v">@v</option> }
+                                </select>
+                            }
+                            else if (spec.ArgKind == "int")
+                            {
+                                <input class="w-input w-num" type="number" @bind="spec.ArgInt" @bind:after="Refresh" />
+                            }
+                        }
+
+                        <span class="solstice-spacer"></span>
+
+                        <FlareButton Variant="ButtonVariant.Text" OnClick="@(() => RemoveAt(row))">删除</FlareButton>
+
+                        <span class="w-pin @(_dragFrom == row ? "w-pin-active" : "")"
+                              title="执行连线（拖出）"
+                              @onmousedown:preventDefault="true"
+                              @onmousedown="@(() => StartDrag(row))"
+                              @onmouseup="@(() => EndDrag(row))"></span>
+                    </div>
                 }
             </div>
-            <pre class="w-pre" style="max-height:200px;">@_hex</pre>
-        </FlareCard>
-    }
 
-    @if (!string.IsNullOrEmpty(_error))
-    {
-        <FlareCard Style="margin-top:12px">
-            <div style="color:var(--flare-color-error); white-space:pre-wrap;">@_error</div>
+            <div class="solstice-note" style="margin-top:8px;">
+                按住节点两侧的圆点拖到另一个节点即可连线（决定执行顺序）。
+                函数只能从资产已有的清单里选，不能手填。
+            </div>
         </FlareCard>
+
+        <div style="display:grid; grid-template-columns:minmax(320px,1fr) minmax(320px,1fr); gap:16px; margin-top:12px;">
+            <FlareCard>
+                <div class="solstice-card-title">4. 实时预览 · @_opcodes.Count 条 / @_byteCount 字节</div>
+                <div class="w-code">
+                    @for (var i = 0; i < _opcodes.Count; i++)
+                    {
+                        <div><span style="opacity:.45">@i.ToString("000")</span>  @_opcodes[i]</div>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <div style="margin-top:8px; color:var(--flare-color-error); white-space:pre-wrap; font-size:12.5px;">@_error</div>
+                }
+            </FlareCard>
+
+            <FlareCard>
+                <div class="solstice-card-title">5. 导出</div>
+                <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <FlareButton Variant="ButtonVariant.Filled" OnClick="Generate">写回资产</FlareButton>
+                    <FlareButton Variant="ButtonVariant.Outlined" OnClick="DownloadAssetsAsync" Disabled="@(_saved is null)">下载 uasset/uexp</FlareButton>
+                </div>
+                <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <span class="solstice-muted">pak 内路径</span>
+                    <input class="w-input" style="max-width:340px;" @bind="_contentPath" @bind:event="oninput"
+                           placeholder="Blueprints/Cards/card_brawl_test1" />
+                    <FlareButton Variant="ButtonVariant.Filled" OnClick="DownloadPakAsync" Disabled="@(_saved is null)">下载 .pak</FlareButton>
+                </div>
+                <div class="solstice-note" style="margin-top:8px; font-size:12px;">
+                    mount point <code>../../../kards/Content/</code>，条目名「路径 + .uasset/.uexp」。
+                    @if (_saved is not null)
+                    {
+                        <span>已写出 uasset @_saved.UAsset.Length B / uexp @_saved.UExp.Length B。</span>
+                    }
+                </div>
+            </FlareCard>
+        </div>
     }
 </div>
 
 <style>
     .w-file { display:flex; flex-direction:column; gap:6px; font-size:13px; }
     .w-select { padding:8px 12px; border-radius:8px; border:1px solid var(--flare-color-outline);
-                background:var(--flare-color-surface-container-low); color:inherit; min-width:300px; }
-    .w-select-sm { padding:5px 8px; border-radius:6px; border:1px solid var(--flare-color-outline);
-                   background:var(--flare-color-surface-container-low); color:inherit; }
-    .w-input { width:100%; padding:5px 8px; border-radius:6px; border:1px solid var(--flare-color-outline);
+                background:var(--flare-color-surface-container-low); color:inherit; min-width:280px; }
+    .w-select-sm { padding:4px 8px; border-radius:6px; border:1px solid var(--flare-color-outline);
+                   background:var(--flare-color-surface-container-low); color:inherit; font-size:12px; }
+    .w-select-sm.w-wide { min-width:170px; }
+    .w-input { padding:4px 8px; border-radius:6px; border:1px solid var(--flare-color-outline);
                background:var(--flare-color-surface-container-low); color:inherit; font-size:12.5px; }
-    .w-chip { padding:3px 10px; border-radius:999px; font-size:12px; cursor:pointer;
-              background:var(--flare-color-surface-container-high); }
-    .w-chip:hover { background:var(--flare-color-primary-container); }
-    .w-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:12.5px; }
-    .w-table th { text-align:left; font-weight:600; padding:6px 8px; opacity:.7; }
-    .w-table td { padding:4px 8px; }
-    .w-pre { margin:8px 0 0; padding:10px; border-radius:8px; overflow:auto; max-height:260px;
-             background:var(--flare-color-surface-container-high); font-size:12px; }
+    .w-input.w-num { width:74px; }
+    .w-lbl { font-size:11.5px; opacity:.6; }
+    .w-canvas { position:relative; overflow:auto; width:900px; max-width:100%;
+                user-select:none; -webkit-user-select:none; }
+    .w-node { position:absolute; left:0; right:0; height:@(RowHeight - 8)px;
+              display:flex; align-items:center; gap:8px; padding:0 22px;
+              border:1px solid var(--flare-color-outline-variant); border-radius:12px;
+              background:var(--flare-color-surface-container-low); }
+    .w-pin { position:absolute; width:13px; height:13px; border-radius:50%;
+             background:#e8def8; border:2px solid #6750a4; cursor:crosshair; }
+    .w-node > .w-pin:first-child { left:4px; }
+    .w-node > .w-pin:last-child { right:4px; }
+    .w-pin:hover { transform:scale(1.35); }
+    .w-pin-active { background:#6750a4; }
+    .w-code { margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.7;
+              max-height:320px; overflow:auto; }
 </style>
 
 @code {
+    private const int RowHeight = 60;
+
     private sealed class NodeSpec
     {
         public string Kind = "assign";
         public string Var = "";
         public int Value = 1;
+        public bool BoolValue = true;
         public string Function = "";
-        public string Owner = "";
+        public string ArgKind = "none";
+        public string ArgVar = "";
+        public int ArgInt;
     }
 
     private byte[]? _uasset, _uexp, _usmap;
     private KismetWorkspace? _ws;
     private List<string> _functions = [];
     private List<string> _variables = [];
+    private List<string> _importChoices = [];
+    private List<string> _localChoices = [];
     private string _selected = "";
 
     private List<NodeSpec> _specs = [];
+    private readonly List<(int From, int To)> _links = [];
+    private int? _dragFrom;
+    private (double X, double Y)? _dragPos;
+
     private List<string> _opcodes = [];
-    private string _hex = "";
     private int _byteCount;
     private KismetWorkspace.SavedAsset? _saved;
     private string _contentPath = "";
@@ -162,31 +271,6 @@
     private string _error = "";
 
     private bool _ready => _uasset is not null && _uexp is not null && _usmap is not null;
-
-    private string NodesJson
-    {
-        get
-        {
-            var items = _specs.Select(ToJson).Where(x => x is not null);
-            return "{\n  \"nodes\": [\n    " + string.Join(",\n    ", items) + "\n  ]\n}";
-        }
-    }
-
-    private static string? ToJson(NodeSpec s) => s.Kind switch
-    {
-        "return" => "{ \"kind\": \"return\" }",
-        "assign" => $"{{ \"kind\": \"assign\", \"var\": \"{Esc(s.Var)}\", \"value\": {s.Value} }}",
-        "assign-bool" => $"{{ \"kind\": \"assign-bool\", \"var\": \"{Esc(s.Var)}\", \"value\": {s.Value != 0} }}",
-        "call" => $"{{ \"kind\": \"call\", \"function\": \"{Esc(s.Function)}\"{Owner(s)}, \"args\": [] }}",
-        "context-call" => $"{{ \"kind\": \"context-call\", \"object\": \"{Esc(s.Var)}\", \"function\": \"{Esc(s.Function)}\"{Owner(s)}, \"args\": [] }}",
-        "virtual-call" => $"{{ \"kind\": \"virtual-call\", \"function\": \"{Esc(s.Function)}\", \"args\": [] }}",
-        _ => null
-    };
-
-    private static string Owner(NodeSpec s)
-        => string.IsNullOrWhiteSpace(s.Owner) ? "" : $", \"owner\": \"{Esc(s.Owner)}\"";
-
-    private static string Esc(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
 
     private async Task<byte[]> ReadAsync(IBrowserFile file)
     {
@@ -206,9 +290,11 @@
         {
             _ws = KismetWorkspace.Open(_uasset!, _uexp!, _usmap!, "/solstice-ws");
             _functions = _ws.Functions.ToList();
+            _importChoices = _ws.FunctionImports.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
+            _localChoices = _functions.ToList();
             _selected = _functions.FirstOrDefault() ?? "";
-            RefreshVariables();
-            _status = $"已载入：{_functions.Count} 个函数";
+            InitializeForFunction();
+            _status = $"已载入：{_functions.Count} 个函数 / {_importChoices.Count} 个可导入";
         }
         catch (Exception ex)
         {
@@ -220,56 +306,225 @@
     private void OnFunctionChanged(ChangeEventArgs e)
     {
         _selected = e.Value?.ToString() ?? "";
-        RefreshVariables();
+        InitializeForFunction();
     }
 
-    private void RefreshVariables()
+    private void InitializeForFunction()
     {
-        _variables = _ws is null ? [] : _ws.Variables(_selected).ToList();
-
+        _variables = _ws?.Variables(_selected).ToList() ?? [];
         _specs = [];
+        _links.Clear();
+        _saved = null;
+
         if (_variables.Count > 0)
         {
             _specs.Add(new NodeSpec { Kind = "assign", Var = _variables[0], Value = 5 });
         }
 
         _specs.Add(new NodeSpec { Kind = "return" });
-        _opcodes = [];
-        _saved = null;
+        Relink();
+        Refresh();
     }
 
-    private void UseVariable(string v)
+    private void Add(string kind)
     {
-        if (_specs.Count > 0) { _specs[0].Var = v; }
+        _specs.Add(new NodeSpec
+        {
+            Kind = kind,
+            Var = _variables.FirstOrDefault() ?? "",
+            Function = kind == "virtual-call"
+                ? _localChoices.FirstOrDefault() ?? ""
+                : _importChoices.FirstOrDefault() ?? "",
+            ArgVar = _variables.FirstOrDefault() ?? ""
+        });
+        Relink();
+        Refresh();
     }
 
-    private void AddNode() => _specs.Add(new NodeSpec { Kind = "return" });
+    private void RemoveAt(int i)
+    {
+        if (i < 0 || i >= _specs.Count) { return; }
+        _specs.RemoveAt(i);
+        _links.Clear();
+        for (var k = 0; k + 1 < _specs.Count; k++) { _links.Add((k, k + 1)); }
+        Refresh();
+    }
 
-    private void RemoveAt(int i) { if (i >= 0 && i < _specs.Count) { _specs.RemoveAt(i); } }
+    private void ChangeKind(NodeSpec spec, ChangeEventArgs e)
+    {
+        spec.Kind = e.Value?.ToString() ?? "assign";
+        if (spec.Kind == "virtual-call" && !_localChoices.Contains(spec.Function))
+        {
+            spec.Function = _localChoices.FirstOrDefault() ?? "";
+        }
+        else if (spec.Kind is "call" or "context-call" && !_importChoices.Contains(spec.Function))
+        {
+            spec.Function = _importChoices.FirstOrDefault() ?? "";
+        }
+
+        Refresh();
+    }
+
+    /// <summary>默认按列表顺序串起执行线。</summary>
+    private void Relink()
+    {
+        if (_links.Count != 0) { return; }
+        for (var k = 0; k + 1 < _specs.Count; k++) { _links.Add((k, k + 1)); }
+    }
+
+    private void StartDrag(int row)
+    {
+        _dragFrom = row;
+        _dragPos = null;
+    }
+
+    private void OnMouseMove(MouseEventArgs e)
+    {
+        if (_dragFrom is null) { return; }
+        _dragPos = (e.OffsetX, e.OffsetY);
+    }
+
+    private void OnMouseUp() => _dragFrom = null;
+
+    private void EndDrag(int row)
+    {
+        if (_dragFrom is not { } from) { return; }
+        _dragFrom = null;
+        _dragPos = null;
+
+        if (from == row) { return; }
+        if (_links.Any(l => l.From == from && l.To == row)) { return; }
+
+        _links.RemoveAll(l => l.From == from || l.To == row);
+        _links.Add((from, row));
+        Refresh();
+    }
+
+    private (double X, double Y) PinPoint(int row, bool right)
+    {
+        const double canvasWidth = 900.0;
+        return (right ? canvasWidth - 10 : 10, row * RowHeight + RowHeight / 2 - 3);
+    }
+
+    private static string Curve((double X, double Y) a, (double X, double Y) b)
+    {
+        var dx = Math.Max(Math.Abs(b.X - a.X) * 0.5, 40);
+        return $"M {a.X} {a.Y} C {a.X + dx} {a.Y}, {b.X - dx} {b.Y}, {b.X} {b.Y}";
+    }
+
+    /// <summary>按执行连线推出节点顺序；未连线的追加在末尾。</summary>
+    private List<int> ExecOrder()
+    {
+        var targets = _links.Select(l => l.To).ToHashSet();
+        var start = Enumerable.Range(0, _specs.Count).FirstOrDefault(i => !targets.Contains(i), 0);
+
+        var order = new List<int>();
+        var seen = new HashSet<int>();
+        var cur = start;
+
+        while (true)
+        {
+            if (!seen.Add(cur)) { break; }
+            order.Add(cur);
+            var next = _links.FirstOrDefault(l => l.From == cur);
+            if (next == default || !_links.Contains(next)) { break; }
+            cur = next.To;
+            if (cur >= _specs.Count) { break; }
+        }
+
+        for (var i = 0; i < _specs.Count; i++)
+        {
+            if (!seen.Contains(i)) { order.Add(i); }
+        }
+
+        return order;
+    }
+
+    private List<KNode> BuildNodes()
+    {
+        var nodes = new List<KNode>();
+
+        foreach (var idx in ExecOrder())
+        {
+            var s = _specs[idx];
+            var args = BuildArgs(s);
+
+            switch (s.Kind)
+            {
+                case "assign":
+                    nodes.Add(new AssignNode(s.Var, s.Value));
+                    break;
+                case "assign-bool":
+                    nodes.Add(new AssignBoolNode(s.Var, s.BoolValue));
+                    break;
+                case "call" when !string.IsNullOrEmpty(s.Function):
+                    nodes.Add(new CallNode(s.Function, args));
+                    break;
+                case "context-call" when !string.IsNullOrEmpty(s.Function):
+                    nodes.Add(new ContextCallNode(s.Var, s.Function, args));
+                    break;
+                case "virtual-call" when !string.IsNullOrEmpty(s.Function):
+                    nodes.Add(new VirtualCallNode(s.Function, args));
+                    break;
+                case "return":
+                    nodes.Add(new ReturnNode());
+                    break;
+            }
+        }
+
+        return nodes;
+    }
+
+    private List<KArg> BuildArgs(NodeSpec s) => s.ArgKind switch
+    {
+        "var" when !string.IsNullOrEmpty(s.ArgVar) => [new LocalArg(s.ArgVar)],
+        "int" => [new IntArg(s.ArgInt)],
+        _ => []
+    };
+
+    /// <summary>重新编译做实时预览（不写回资产）。</summary>
+    private void Refresh()
+    {
+        _error = "";
+        _saved = null;
+
+        if (_ws is null || string.IsNullOrEmpty(_selected)) { return; }
+
+        try
+        {
+            var (ops, hex, bytes) = _ws.Preview(BuildNodes(), _selected);
+            _opcodes = ops.ToList();
+            _byteCount = bytes;
+        }
+        catch (Exception ex)
+        {
+            _opcodes = [];
+            _byteCount = 0;
+            _error = $"{ex.GetType().Name}: {ex.Message}";
+        }
+    }
 
     private void Generate()
     {
         _error = "";
-        _opcodes = [];
-        _hex = "";
         _saved = null;
+
         try
         {
-            var (ops, hex, bytes) = _ws!.Generate(NodesJson, _selected);
+            var (ops, hex, bytes) = _ws!.Generate(BuildNodes(), _selected);
             _opcodes = ops.ToList();
-            _hex = hex;
             _byteCount = bytes;
             _saved = _ws.Save("/solstice-ws");
-            _status = $"生成 {ops.Count} 条 / {bytes} 字节，已可下载";
+            _status = $"已写回：{ops.Count} 条 / {bytes} 字节";
         }
         catch (Exception ex)
         {
             _error = $"{ex.GetType().Name}: {ex.Message}";
-            _status = "生成失败";
+            _status = "写回失败";
         }
     }
 
-    private async Task DownloadAsync()
+    private async Task DownloadAssetsAsync()
     {
         if (_saved is null) { return; }
         await JS.InvokeVoidAsync("solsticeDownload", "out.uasset", Convert.ToBase64String(_saved.UAsset));
@@ -277,22 +532,17 @@
         _status = "已触发下载（out.uasset / out.uexp）";
     }
 
-    /// <summary>
-    /// 把生成的 uasset/uexp 打成一个 pak（宽 mount point + 相对路径条目名）。
-    /// 格式已用样本包逐字节复现验证过。
-    /// </summary>
     private async Task DownloadPakAsync()
     {
         if (_saved is null) { return; }
 
-        var path = (_contentPath ?? "").Trim().Trim('/');
+        var path = (_contentPath ?? "").Trim().Trim('/').Replace('\\', '/');
         if (path.Length == 0)
         {
             _error = "请先填写 pak 内路径，例如 Blueprints/Cards/card_brawl_test1";
             return;
         }
 
-        path = path.Replace('\\', '/');
         if (path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
         {
             path = path[..^".uasset".Length];
@@ -309,7 +559,7 @@
             var pak = PakWriter.Build("../../../kards/Content/", entries);
             var name = Path.GetFileName(path) + ".pak";
             await JS.InvokeVoidAsync("solsticeDownload", name, Convert.ToBase64String(pak));
-            _status = $"已生成 {name}（{pak.Length} 字节，2 个条目）";
+            _status = $"已生成 {name}（{pak.Length} 字节 / 2 条目）";
         }
         catch (Exception ex)
         {
