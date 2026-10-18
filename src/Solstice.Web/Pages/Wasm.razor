@@ -217,8 +217,8 @@
             return;
         }
 
-        await JS.InvokeVoidAsync("solsticeSaveBytes", "out.uasset", Convert.ToBase64String(_saved.UAsset));
-        await JS.InvokeVoidAsync("solsticeSaveBytes", "out.uexp", Convert.ToBase64String(_saved.UExp));
+        await JS.InvokeVoidAsync("solsticeDownload", "out.uasset", Convert.ToBase64String(_saved.UAsset));
+        await JS.InvokeVoidAsync("solsticeDownload", "out.uexp", Convert.ToBase64String(_saved.UExp));
         _status = "已触发下载（out.uasset / out.uexp）";
     }
 }
