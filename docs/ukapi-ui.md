@@ -397,3 +397,44 @@ Func<string, FName>? resolveName = null
 - 复制样本时加 `lock` —— 缓解但未根除
 
 推测：`dotnet build` 结束后短时间内仍有句柄未释放，或首次运行时 MSBuild/VSTest 相关进程仍占用输出目录附近的文件。
+
+## 20. 六种节点类型的组合验证（TESTED）
+
+`docs/fixtures/full-program.json` 用一份 JSON 同时覆盖全部已支持节点：
+
+```json
+if (EntryPoint) {
+    EntryPoint = 7;
+    EntryPoint.IsValid(3);
+    this.ExecuteUbergraph_card_brawl_test1(EntryPoint);
+    return;
+}
+IsValid(EntryPoint);
+return;
+```
+
+命令：
+
+```
+KismetGen --json docs/fixtures/full-program.json <asset> <usmap> ExecuteUbergraph_card_brawl_test1 out.uasset
+```
+
+实测输出：
+
+```
+56 条 -> 11 条（JumpIfNot -> Let -> Context -> LocalVirtualFunction
+              -> Return -> Jump -> Nothing -> Nothing
+              -> FinalFunction -> Return -> EndOfScript）
+读回 11 条：一致
+```
+
+| JSON kind | 指令 | 状态 |
+|---|---|---|
+| `assign` | EX_Let | TESTED |
+| `call` | EX_FinalFunction | TESTED |
+| `context-call` | EX_Context + EX_FinalFunction | TESTED |
+| `virtual-call` | EX_LocalVirtualFunction | TESTED |
+| `if`（可嵌套） | EX_JumpIfNot + EX_Jump | TESTED |
+| `return` | EX_Return + EX_EndOfScript | TESTED |
+
+未覆盖：循环（EX_ComputedJump 等）、EX_LetBool、EX_CallMath、数组/结构体相关指令。

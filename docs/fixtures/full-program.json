@@ -1,0 +1,12 @@
+{ "nodes": [
+  { "kind": "if",
+    "cond": { "var": "EntryPoint" },
+    "then": [
+      { "kind": "assign", "var": "EntryPoint", "value": 7 },
+      { "kind": "context-call", "object": "EntryPoint", "function": "IsValid", "args": [ { "int": 3 } ] },
+      { "kind": "virtual-call", "function": "ExecuteUbergraph_card_brawl_test1", "args": [ { "var": "EntryPoint" } ] },
+      { "kind": "return" }
+    ] },
+  { "kind": "call", "function": "IsValid", "args": [ { "var": "EntryPoint" } ] },
+  { "kind": "return" }
+] }
