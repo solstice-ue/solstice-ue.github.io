@@ -8,6 +8,8 @@ namespace Solstice.Core.Tests;
 /// </summary>
 public static class TestAssets
 {
+    /// <summary>复制期间的互斥：并行测试同时 File.Copy 同一个源文件会互相干扰。</summary>
+    private static readonly object Sync = new();
     private static readonly string SourceDir = Environment.GetEnvironmentVariable("SOLSTICE_SRC") ?? "";
     private static readonly string UsmapPath = Environment.GetEnvironmentVariable("SOLSTICE_USMAP") ?? "";
 
@@ -25,17 +27,19 @@ public static class TestAssets
         Directory.CreateDirectory(dir);
 
         var asset = Path.Combine(dir, "a.uasset");
-        File.Copy(Path.Combine(SourceDir, assetFileName), asset, true);
-
         var uexp = Path.ChangeExtension(asset, ".uexp");
-        File.Copy(Path.ChangeExtension(Path.Combine(SourceDir, assetFileName), ".uexp"), uexp, true);
-
         var usmap = Path.Combine(dir, "kards.usmap");
-        File.Copy(UsmapPath, usmap, true);
 
-        foreach (var f in Directory.GetFiles(dir))
+        lock (Sync)
         {
-            File.SetAttributes(f, FileAttributes.Normal);
+            File.Copy(Path.Combine(SourceDir, assetFileName), asset, true);
+            File.Copy(Path.ChangeExtension(Path.Combine(SourceDir, assetFileName), ".uexp"), uexp, true);
+            File.Copy(UsmapPath, usmap, true);
+
+            foreach (var f in Directory.GetFiles(dir))
+            {
+                File.SetAttributes(f, FileAttributes.Normal);
+            }
         }
 
         return new Copy(asset, usmap);
