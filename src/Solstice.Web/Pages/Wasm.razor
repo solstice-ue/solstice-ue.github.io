@@ -319,16 +319,51 @@
         }
     }
 
-    /// <summary>某个源节点能提供的数据。</summary>
-    private KArg? ArgOf(int sourceRow)
+    /// <summary>某个源节点能提供的数据：读变量 / 常量 / 另一个调用的返回值。</summary>
+    private KArg? ArgOf(int sourceRow, int depth = 0)
     {
         var src = _specs[sourceRow];
-        return src.Kind switch
+        switch (src.Kind)
         {
-            "get" => new LocalArg(src.Var),
-            "const" => new IntArg(src.Value),
-            _ => null
-        };
+            case "get": return new LocalArg(src.Var);
+            case "const": return new IntArg(src.Value);
+            case "call": return depth >= 4 ? null : CallArgOf(sourceRow, depth + 1);
+            default: return null;
+        }
+    }
+
+    /// <summary>把「调用」节点表示成可嵌套的实参。</summary>
+    private CallArg CallArgOf(int row, int depth)
+    {
+        var s = _specs[row];
+        var sig = SigOf(s);
+
+        var args = new List<KArg>();
+        var count = sig?.Inputs.Count ?? 1;
+        for (var i = 0; i < count; i++)
+        {
+            var link = _dataLinks.FirstOrDefault(l => l.To == row && l.ToPin == $"arg{i}");
+            if (link is null) { continue; }
+            var a = ArgOf(link.From, depth);
+            if (a is not null) { args.Add(a); }
+        }
+
+        var shape = _functions.Contains(s.Function)
+            ? CallShape.Virtual
+            : sig is not null && sig.IsStatic ? CallShape.Final : CallShape.Context;
+
+        var objVar = shape == CallShape.Context ? ObjectVariableOf(row) : null;
+
+        return new CallArg(s.Function, args, shape, objVar);
+    }
+
+    /// <summary>「对象」这一端来自哪个变量（暂不支持来自调用返回值）。</summary>
+    private string? ObjectVariableOf(int row)
+    {
+        var link = _dataLinks.FirstOrDefault(l => l.To == row && l.ToPin == "obj");
+        if (link is null) { return null; }
+        var src = _specs[link.From];
+        return src.Kind == "get" ? src.Var : null;
     }
 
     private static int PinY(int index, int count)
@@ -534,6 +569,14 @@
                 var cond = ArgFor(i, "cond", new LocalArg(s.Var));
                 nodes.Add(s.Kind == "if" ? new IfNode(cond, body) : new LoopNode(cond, body));
                 i = after;
+                continue;
+            }
+
+            // 输出去喂别人参数的调用是「数据源」，不能同时当独立语句再执行一次
+            var usedAsData = _dataLinks.Any(l => l.From == i);
+            if (s.Kind == "call" && usedAsData)
+            {
+                i++;
                 continue;
             }
 

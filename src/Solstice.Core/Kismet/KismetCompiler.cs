@@ -139,38 +139,67 @@ public static class KismetCompiler
     {
         var result = new List<KismetExpression>();
 
-        void EmitArg(KArg arg)
+        /// <summary>
+        /// 把数据流参数转成表达式。支持嵌套调用（<see cref="CallArg"/>），
+        /// 这样一个调用的返回值可以直接作为另一个调用的参数或对象。
+        /// </summary>
+        KismetExpression ToExpr(KArg arg)
         {
             switch (arg)
             {
                 case IntArg i:
-                    result.Add(new EX_IntConst { Value = i.Value });
-                    break;
+                    return new EX_IntConst { Value = i.Value };
 
                 case LocalArg l when variables is not null && variables.TryGetValue(l.Name, out var pointer):
                     // 复用现有字节码里的属性指针：FFieldPath 自带变量名与归属索引
-                    result.Add(new EX_LocalVariable { Variable = pointer });
-                    break;
+                    return new EX_LocalVariable { Variable = pointer };
+
+                case CallArg c:
+                {
+                    var inner = c.Args.Select(ToExpr).ToArray();
+
+                    if (c.Shape == CallShape.Virtual && resolveName is not null)
+                    {
+                        return new EX_LocalVirtualFunction
+                        {
+                            VirtualFunctionName = resolveName(c.Function),
+                            Parameters = inner
+                        };
+                    }
+
+                    var final = new EX_FinalFunction
+                    {
+                        StackNode = functions is not null && functions.TryGetValue(c.Function, out var fi)
+                            ? fi
+                            : new FPackageIndex(0),
+                        Parameters = inner
+                    };
+
+                    if (c.Shape == CallShape.Context
+                        && c.ObjectVariable is { } objVar
+                        && variables is not null
+                        && variables.TryGetValue(objVar, out var objPtr))
+                    {
+                        return new EX_Context
+                        {
+                            ObjectExpression = new EX_LocalVariable { Variable = objPtr },
+                            ContextExpression = final,
+                            RValuePointer = objPtr,
+                            Offset = measure?.Invoke(final) ?? 0
+                        };
+                    }
+
+                    return final;
+                }
 
                 default:
-                    result.Add(new EX_Nothing());
-                    break;
+                    return new EX_Nothing();
             }
         }
 
-        KismetExpression[] BuildArgs(CallNode c)
-        {
-            var args = new List<KismetExpression>();
-            var before = result.Count;
-            foreach (var a in c.Args)
-            {
-                EmitArg(a);
-            }
+        void EmitArg(KArg arg) => result.Add(ToExpr(arg));
 
-            args.AddRange(result.Skip(before));
-            result.RemoveRange(before, result.Count - before);
-            return args.ToArray();
-        }
+        KismetExpression[] BuildArgs(CallNode c) => c.Args.Select(ToExpr).ToArray();
 
         var patches = new List<(KismetExpression Jump, int Target)>();
 
@@ -209,7 +238,10 @@ public static class KismetCompiler
                     var inner = new EX_FinalFunction { StackNode = ctxFn, Parameters = BuildArgs(new CallNode(cc.Function, cc.Args)) };
                     result.Add(new EX_Context
                     {
-                        ObjectExpression = new EX_LocalVariable { Variable = objPtr },
+                        // 对象可以是变量，也可以是另一个调用的返回值
+                        ObjectExpression = cc.ObjectArg is { } oa
+                            ? ToExpr(oa)
+                            : new EX_LocalVariable { Variable = objPtr },
                         ContextExpression = inner,
                         RValuePointer = objPtr,
                         Offset = measure?.Invoke(inner) ?? 0

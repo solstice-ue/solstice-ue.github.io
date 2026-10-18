@@ -76,6 +76,23 @@ public sealed record IntArg(int Value) : KArg(PinType.Int);
 
 public sealed record LocalArg(string Name) : KArg(PinType.Int);
 
+/// <summary>调用的形态（由签名与归属推断，不需要用户选）。</summary>
+public enum CallShape
+{
+    /// <summary>EX_FinalFunction：静态函数，StackNode 指向 Import。</summary>
+    Final,
+
+    /// <summary>EX_LocalVirtualFunction：本资产函数，按 FName 调用。</summary>
+    Virtual,
+
+    /// <summary>EX_Context：实例函数，需要对象上下文。</summary>
+    Context
+}
+
+/// <summary>以另一个调用的返回值作为参数。</summary>
+public sealed record CallArg(string Function, IReadOnlyList<KArg> Args, CallShape Shape, string? ObjectVariable = null)
+    : KArg(PinType.Object);
+
 /// <summary>节点（编辑器层的逻辑单元，一行一个）。</summary>
 public abstract record KNode(string Title);
 
@@ -96,7 +113,12 @@ public sealed record AssignNode(string VariableName, KArg Value) : KNode($"Set {
 /// 而长度依赖资产（FName 索引宽度），所以编译器需要调用方提供 measure 回调。
 /// </para>
 /// </summary>
-public sealed record ContextCallNode(string ObjectVariable, string Function, IReadOnlyList<KArg> Args, string? Owner = null)
+public sealed record ContextCallNode(
+    string ObjectVariable,
+    string Function,
+    IReadOnlyList<KArg> Args,
+    string? Owner = null,
+    KArg? ObjectArg = null)
     : KNode($"{ObjectVariable}.{Function}");
 
 /// <summary>
