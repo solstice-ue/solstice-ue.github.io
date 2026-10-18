@@ -43,6 +43,8 @@
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("call"))">+ 调用</FlareButton>
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("context-call"))">+ 跨对象调用</FlareButton>
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("virtual-call"))">+ 虚调用</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("if"))">+ 条件</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("loop"))">+ 循环</FlareButton>
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("return"))">+ 返回</FlareButton>
             </div>
 
@@ -80,8 +82,20 @@
                             <option value="call">调用</option>
                             <option value="context-call">跨对象调用</option>
                             <option value="virtual-call">虚调用</option>
+                            <option value="if">条件</option>
+                            <option value="loop">循环</option>
                             <option value="return">返回</option>
                         </select>
+
+                        @if (spec.Kind is "if" or "loop")
+                        {
+                            <span class="w-lbl">条件</span>
+                            <select class="w-select-sm" value="@spec.Var"
+                                    @onchange="@(e => { spec.Var = e.Value?.ToString() ?? ""; Refresh(); })">
+                                @foreach (var v in _variables) { <option value="@v">@v</option> }
+                            </select>
+                            <span class="w-lbl">（后续节点作为体内）</span>
+                        }
 
                         @if (spec.Kind is "assign" or "assign-bool" or "context-call")
                         {
@@ -440,40 +454,52 @@
         return order;
     }
 
-    private List<KNode> BuildNodes()
+    private List<KNode> BuildNodes() => BuildRange(ExecOrder(), 0, out _);
+
+    /// <summary>
+    /// 把平铺节点解析成树：遇到条件/循环，其后的节点全部归入体内；
+    /// 体内若再出现条件/循环，继续递归，形成右嵌套。
+    /// </summary>
+    private List<KNode> BuildRange(List<int> order, int start, out int consumed)
     {
         var nodes = new List<KNode>();
+        var i = start;
 
-        foreach (var idx in ExecOrder())
+        while (i < order.Count)
         {
-            var s = _specs[idx];
-            var args = BuildArgs(s);
+            var s = _specs[order[i]];
 
-            switch (s.Kind)
+            if (s.Kind is "if" or "loop")
             {
-                case "assign":
-                    nodes.Add(new AssignNode(s.Var, s.Value));
-                    break;
-                case "assign-bool":
-                    nodes.Add(new AssignBoolNode(s.Var, s.BoolValue));
-                    break;
-                case "call" when !string.IsNullOrEmpty(s.Function):
-                    nodes.Add(new CallNode(s.Function, args));
-                    break;
-                case "context-call" when !string.IsNullOrEmpty(s.Function):
-                    nodes.Add(new ContextCallNode(s.Var, s.Function, args));
-                    break;
-                case "virtual-call" when !string.IsNullOrEmpty(s.Function):
-                    nodes.Add(new VirtualCallNode(s.Function, args));
-                    break;
-                case "return":
-                    nodes.Add(new ReturnNode());
-                    break;
+                var body = BuildRange(order, i + 1, out var innerConsumed);
+                consumed = (i + 1 + innerConsumed) - start;
+
+                var cond = new LocalArg(s.Var);
+                nodes.Add(s.Kind == "if"
+                    ? new IfNode(cond, body)
+                    : new LoopNode(cond, body));
+                return nodes;
             }
+
+            var node = ToNode(s);
+            if (node is not null) { nodes.Add(node); }
+            i++;
         }
 
+        consumed = i - start;
         return nodes;
     }
+
+    private KNode? ToNode(NodeSpec s) => s.Kind switch
+    {
+        "assign" => new AssignNode(s.Var, s.Value),
+        "assign-bool" => new AssignBoolNode(s.Var, s.BoolValue),
+        "call" when !string.IsNullOrEmpty(s.Function) => new CallNode(s.Function, BuildArgs(s)),
+        "context-call" when !string.IsNullOrEmpty(s.Function) => new ContextCallNode(s.Var, s.Function, BuildArgs(s)),
+        "virtual-call" when !string.IsNullOrEmpty(s.Function) => new VirtualCallNode(s.Function, BuildArgs(s)),
+        "return" => new ReturnNode(),
+        _ => null
+    };
 
     private List<KArg> BuildArgs(NodeSpec s) => s.ArgKind switch
     {
