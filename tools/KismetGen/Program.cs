@@ -36,6 +36,21 @@ static List<KNode> ParseNodes(string json)
                 }
                 nodes.Add(new CallNode(n.GetProperty("function").GetString()!, args));
                 break;
+            case "context-call":
+                var cargs = new List<KArg>();
+                if (n.TryGetProperty("args", out var ca))
+                {
+                    foreach (var x in ca.EnumerateArray())
+                    {
+                        if (x.TryGetProperty("int", out var civ)) cargs.Add(new IntArg(civ.GetInt32()));
+                        else if (x.TryGetProperty("var", out var cvv)) cargs.Add(new LocalArg(cvv.GetString()!));
+                    }
+                }
+                nodes.Add(new ContextCallNode(
+                    n.GetProperty("object").GetString()!,
+                    n.GetProperty("function").GetString()!,
+                    cargs));
+                break;
             case "return":
                 nodes.Add(new ReturnNode());
                 break;
@@ -55,7 +70,7 @@ static int Run(List<KNode> nodes, string assetPath, string usmapPath, string fun
     var vars = ExpressionWalker.BuildVariableIndex(fn.ScriptBytecode!);
     var funcs = ImportIndex.BuildFunctionIndex(asset);
 
-    var exprs = KismetCompiler.CompileToExpressions(nodes, vars, funcs);
+    var exprs = KismetCompiler.CompileToExpressions(nodes, vars, funcs, e => e.GetSize(asset));
     fn.ScriptBytecode = exprs.ToArray();
     asset.Write(outPath);
 
