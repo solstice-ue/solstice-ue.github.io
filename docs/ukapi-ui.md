@@ -256,3 +256,17 @@ public UAsset(EngineVersion engineVersion = ...)       // 空白资产
 
 1. 先用「拼接后的单流 + Usmap 从内存构造」做一个小验证（如果 Usmap 也支持流）
 2. 验证不过，就退回到**离线模式**：本地 CLI 生成字节码，页面只负责展示与编辑节点，不直接解析资产
+
+### 流式构造的实际签名（补充第 14 节）
+
+```csharp
+public AssetBinaryReader(Stream stream, UAsset asset = null)
+public AssetBinaryReader(Stream stream, bool inLoadUexp, UAsset asset = null)
+public Usmap(string path)
+public Usmap(UsmapBinaryReader reader)
+public UsmapBinaryReader(Stream stream, Usmap file)   // 需要 Usmap 实例
+```
+
+`AssetBinaryReader` 可以脱离 `UAsset` 构造（asset 参数可空），所以资产流式加载有戏；
+但 `UsmapBinaryReader` 要求传一个 `Usmap` 实例，构造上是循环依赖，
+`new Usmap(path)` 仍是唯一简单入口 —— 浏览器内没有路径，这里是真正的卡点。
