@@ -25,7 +25,19 @@ public class WalkerTests
         foreach (var v in vars.Take(4))
         {
             var p = v.Variable;
-            Console.WriteLine($"[walk] {v.Inst}  Old={(p?.Old is null ? "null" : p.Old.Index.ToString())}  New={(p?.New is null ? "null" : "有")}");
+            var path = p?.New;
+            if (path is not null)
+            {
+                foreach (var fld in path.GetType().GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+                {
+                    var val = fld.GetValue(path);
+                    var s = val is System.Collections.IEnumerable en and not string
+                        ? string.Join("|", en.Cast<object>().Select(x => x?.ToString()))
+                        : val?.ToString();
+                    if (s is not null && s.Length > 70) s = s[..70] + "...";
+                    Console.WriteLine($"[walk]   {fld.Name}({fld.FieldType.Name}) = {s}");
+                }
+            }
         }
     }
 }
