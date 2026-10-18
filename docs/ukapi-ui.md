@@ -154,3 +154,26 @@ Expressions 目录下 public override void Write 的匹配数：0
 
 参照物是每个 `EX_*` 类的 `Read` 实现：读什么、按什么顺序读、什么类型，
 反过来就是写法。加上 `GetSize` 可以对写出的长度做自校验。
+
+## 11. 更正：UAssetAPI **有**字节码写入器
+
+上一节（第 10 节）的结论是错的，原因是我 grep 时把签名写成了 `public override void Write`，
+而实际返回类型是 `int`：
+
+```csharp
+public override int Write(AssetBinaryWriter writer)
+{
+    writer.Write(Value);
+    return sizeof(int);   // 返回写出的数据字节数
+}
+```
+
+**每个 `EX_*` 类都有 `Write(AssetBinaryWriter)`**，返回值是该表达式写出的字节数。
+所以：
+
+- 不需要自己写序列化器
+- 构造好 `KismetExpression` 对象后，交给 UAssetAPI 的 writer 即可
+- `Write` 返回的字节数可以直接用来累加、回填跳转偏移
+
+第 10 节保留作为记录：**同一个错误（只 grep 一次就下结论）我犯了三次**
+（`EX_EndOfScript`、`CityHash`、字节码写入器），根因都是没有读完就判断。
