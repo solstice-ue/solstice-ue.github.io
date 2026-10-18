@@ -12,9 +12,14 @@ using UAssetAPI.ExportTypes;
 static List<KNode> ParseNodes(string json)
 {
     using var doc = JsonDocument.Parse(json);
+    return ParseList(doc.RootElement.GetProperty("nodes"));
+}
+
+static List<KNode> ParseList(JsonElement array)
+{
     var nodes = new List<KNode>();
 
-    foreach (var n in doc.RootElement.GetProperty("nodes").EnumerateArray())
+    foreach (var n in array.EnumerateArray())
     {
         var kind = n.GetProperty("kind").GetString();
         switch (kind)
@@ -51,6 +56,15 @@ static List<KNode> ParseNodes(string json)
                     n.GetProperty("function").GetString()!,
                     cargs));
                 break;
+            case "if":
+            {
+                KArg cond = n.GetProperty("cond").TryGetProperty("int", out var cvi)
+                    ? new IntArg(cvi.GetInt32())
+                    : new LocalArg(n.GetProperty("cond").GetProperty("var").GetString()!);
+                var then = n.TryGetProperty("then", out var t) ? ParseList(t) : new List<KNode>();
+                nodes.Add(new IfNode(cond, then));
+                break;
+            }
             case "return":
                 nodes.Add(new ReturnNode());
                 break;
