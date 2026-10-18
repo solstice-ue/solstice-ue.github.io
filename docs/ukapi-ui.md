@@ -375,3 +375,25 @@ Func<string, FName>? resolveName = null
 
 函数名必须**已存在于资产的名字表**（`asset.GetNameMapIndexList()` 或等价 API）。
 凭空造名字能写出字节，但读回会失败——生成器应先查名字表，查不到就报错而不是写坏数据。
+
+## 19. 测试偶发失败的观察（未完全解决）
+
+现象：连续运行测试时，**紧跟构建之后的头一两次**容易失败，之后稳定通过。
+
+最近一次实测（删掉 VirtualFunctionTests 后，连续 8 次）：
+
+```
+第 1 次: 失败 ImportIndexTests.函数名到FPackageIndex (26ms)
+第 2 次: 失败 ImportIndexTests.函数名到FPackageIndex (26ms)
+第 3–8 次: 失败 0 / 成功 37
+```
+
+失败信息始终是
+`The process cannot access the file ... being used by another process`，
+说明是文件句柄争用，不是断言错误。
+
+已尝试：
+- 关测试并行（csproj `ParallelizeTestCollections=false`）—— 未生效，xUnit v3 可能不认该属性
+- 复制样本时加 `lock` —— 缓解但未根除
+
+推测：`dotnet build` 结束后短时间内仍有句柄未释放，或首次运行时 MSBuild/VSTest 相关进程仍占用输出目录附近的文件。
