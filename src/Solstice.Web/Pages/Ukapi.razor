@@ -1,0 +1,148 @@
+@page "/ukapi"
+@using Solstice.Core.Kismet
+
+<PageTitle>Solstice · UKAPI</PageTitle>
+
+<div class="solstice-page" style="max-width:none">
+    <div class="solstice-head">
+        <h1 class="solstice-h1">UKAPI · 生成</h1>
+        <span class="solstice-spacer"></span>
+        <span class="solstice-muted">@_instructions.Count 条指令 · 联动编译</span>
+    </div>
+
+    <div style="display:grid; grid-template-columns:minmax(320px,1fr) minmax(420px,1.2fr); gap:16px; align-items:start;">
+
+        <!-- 左：字节码预览 -->
+        <FlareCard Style="height:70vh; display:flex; flex-direction:column; overflow:hidden">
+            <div class="solstice-card-title">字节码预览</div>
+            <div style="flex:1; overflow:auto; font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.75;">
+                @for (var i = 0; i < _instructions.Count; i++)
+                {
+                    var ins = _instructions[i];
+                    <div style="display:flex; gap:10px; white-space:pre;">
+                        <span style="color:var(--flare-color-on-surface-variant); opacity:.6;">@i.ToString("000")</span>
+                        <span style="color:@OpcodeColor(ins.Opcode);">@ins.Opcode</span>
+                        @if (!string.IsNullOrEmpty(ins.Operand))
+                        {
+                            <span style="color:var(--flare-color-on-surface-variant);">@ins.Operand</span>
+                        }
+                        @if (ins.JumpTarget is { } t)
+                        {
+                            <span style="color:var(--flare-color-tertiary);">→ @t.ToString("000")</span>
+                        }
+                    </div>
+                }
+            </div>
+        </FlareCard>
+
+        <!-- 右：平铺节点列表 -->
+        <div style="height:70vh; overflow:auto; display:flex; flex-direction:column; gap:8px;">
+
+            <FlareCard>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="pin pin-exec"></span>
+                    <strong>If</strong>
+                    <span class="solstice-muted">条件来自局部变量</span>
+                </div>
+                <div style="margin-left:14px; margin-top:8px; display:flex; align-items:center; gap:8px;">
+                    <span class="pin pin-bool"></span>
+                    <span class="solstice-muted">bool</span>
+                    <input class="solstice-search" style="min-width:0; width:180px; padding:6px 12px;"
+                           value="@_conditionVar" @oninput="OnConditionChanged" />
+                </div>
+            </FlareCard>
+
+            <FlareCard>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="pin pin-exec"></span>
+                    <strong>Call AddIntelToCard</strong>
+                </div>
+                <div style="margin-left:14px; margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="pin pin-int"></span><span class="solstice-muted">in CardID</span>
+                        <input class="solstice-search" style="min-width:0; width:140px; padding:6px 12px;"
+                               value="@_cardId" @oninput="OnCardIdChanged" />
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="pin pin-int"></span><span class="solstice-muted">in amount</span>
+                        <input class="solstice-search" style="min-width:0; width:140px; padding:6px 12px;"
+                               value="@_amount" @oninput="OnAmountChanged" />
+                    </div>
+                </div>
+            </FlareCard>
+
+            <FlareCard>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="pin pin-exec"></span>
+                    <strong>Return</strong>
+                </div>
+            </FlareCard>
+
+            <div class="solstice-note">
+                左侧随右侧输入实时重编译。当前只生成指令列表，尚未序列化进 uasset。
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .pin { display:inline-block; width:10px; height:10px; border-radius:50%; flex:none; }
+    .pin-exec { background:#e8def8; border:2px solid #6750a4; }
+    .pin-int { background:#b2f1c5; border:2px solid #2e6c47; }
+    .pin-bool { background:#ffdea6; border:2px solid #7d5700; }
+</style>
+
+@code {
+    private string _conditionVar = "IsElite";
+    private string _cardId = "CardID";
+    private string _amount = "1";
+    private IReadOnlyList<KismetInstruction> _instructions = [];
+
+    protected override void OnInitialized() => Recompile();
+
+    private void OnConditionChanged(ChangeEventArgs e)
+    {
+        _conditionVar = e.Value?.ToString() ?? "";
+        Recompile();
+    }
+
+    private void OnCardIdChanged(ChangeEventArgs e)
+    {
+        _cardId = e.Value?.ToString() ?? "";
+        Recompile();
+    }
+
+    private void OnAmountChanged(ChangeEventArgs e)
+    {
+        _amount = e.Value?.ToString() ?? "";
+        Recompile();
+    }
+
+    private void Recompile()
+    {
+        var amount = int.TryParse(_amount, out var v) ? v : 0;
+
+        var nodes = new List<KNode>
+        {
+            new IfNode(
+                new LocalArg(string.IsNullOrWhiteSpace(_conditionVar) ? "Condition" : _conditionVar),
+                [
+                    new CallNode("AddIntelToCard",
+                    [
+                        new LocalArg(string.IsNullOrWhiteSpace(_cardId) ? "CardID" : _cardId),
+                        new IntArg(amount)
+                    ])
+                ]),
+            new ReturnNode()
+        };
+
+        _instructions = KismetCompiler.Compile(nodes);
+    }
+
+    private static string OpcodeColor(string opcode) => opcode switch
+    {
+        "EX_Jump" or "EX_JumpIfNot" or "EX_Return" or "EX_EndOfScript" => "var(--flare-color-tertiary)",
+        "EX_FinalFunction" or "EX_EndFunctionParms" => "var(--flare-color-primary)",
+        _ => "var(--flare-color-on-surface)"
+    };
+}
