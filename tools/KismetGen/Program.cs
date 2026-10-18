@@ -9,113 +9,30 @@ using UAssetAPI.ExportTypes;
 //   KismetGen <asset> <usmap> <function> <variable> <int> <out>
 //   KismetGen --json <nodes.json> <asset> <usmap> <function> <out>
 
-static List<KNode> ParseNodes(string json)
-{
-    using var doc = JsonDocument.Parse(json);
-    return ParseList(doc.RootElement.GetProperty("nodes"));
-}
-
-static List<KNode> ParseList(JsonElement array)
-{
-    var nodes = new List<KNode>();
-
-    foreach (var n in array.EnumerateArray())
-    {
-        var kind = n.GetProperty("kind").GetString();
-        switch (kind)
-        {
-            case "assign":
-                nodes.Add(new AssignNode(
-                    n.GetProperty("var").GetString()!,
-                    n.GetProperty("value").GetInt32()));
-                break;
-            case "call":
-                var args = new List<KArg>();
-                if (n.TryGetProperty("args", out var a))
-                {
-                    foreach (var x in a.EnumerateArray())
-                    {
-                        if (x.TryGetProperty("int", out var iv)) args.Add(new IntArg(iv.GetInt32()));
-                        else if (x.TryGetProperty("var", out var vv)) args.Add(new LocalArg(vv.GetString()!));
-                    }
-                }
-                nodes.Add(new CallNode(n.GetProperty("function").GetString()!, args, n.TryGetProperty("owner", out var ow) ? ow.GetString() : null));
-                break;
-            case "context-call":
-                var cargs = new List<KArg>();
-                if (n.TryGetProperty("args", out var ca))
-                {
-                    foreach (var x in ca.EnumerateArray())
-                    {
-                        if (x.TryGetProperty("int", out var civ)) cargs.Add(new IntArg(civ.GetInt32()));
-                        else if (x.TryGetProperty("var", out var cvv)) cargs.Add(new LocalArg(cvv.GetString()!));
-                    }
-                }
-                nodes.Add(new ContextCallNode(
-                    n.GetProperty("object").GetString()!,
-                    n.GetProperty("function").GetString()!,
-                    cargs,
-                    n.TryGetProperty("owner", out var cow) ? cow.GetString() : null));
-                break;
-            case "assign-bool":
-                nodes.Add(new AssignBoolNode(
-                    n.GetProperty("var").GetString()!,
-                    n.GetProperty("value").GetBoolean()));
-                break;
-            case "virtual-call":
-            {
-                var vargs = new List<KArg>();
-                if (n.TryGetProperty("args", out var va))
-                {
-                    foreach (var x in va.EnumerateArray())
-                    {
-                        if (x.TryGetProperty("int", out var viv)) vargs.Add(new IntArg(viv.GetInt32()));
-                        else if (x.TryGetProperty("var", out var vvv)) vargs.Add(new LocalArg(vvv.GetString()!));
-                    }
-                }
-                nodes.Add(new VirtualCallNode(n.GetProperty("function").GetString()!, vargs));
-                break;
-            }
-            case "if":
-            {
-                KArg cond = n.GetProperty("cond").TryGetProperty("int", out var cvi)
-                    ? new IntArg(cvi.GetInt32())
-                    : new LocalArg(n.GetProperty("cond").GetProperty("var").GetString()!);
-                var then = n.TryGetProperty("then", out var t) ? ParseList(t) : new List<KNode>();
-                nodes.Add(new IfNode(cond, then));
-                break;
-            }
-            case "return":
-                nodes.Add(new ReturnNode());
-                break;
-        }
-    }
-
-    return nodes;
-}
 
 static int Run(List<KNode> nodes, string assetPath, string usmapPath, string funcName, string outPath)
 {
-    var asset = new UAsset(assetPath, EngineVersion.VER_UE5_6, new Usmap(usmapPath));
-    var fn = asset.Exports.OfType<FunctionExport>().FirstOrDefault(x => x.ObjectName.ToString() == funcName);
-    if (fn is null) { Console.Error.WriteLine($"找不到函数: {funcName}"); return 1; }
+    // 与页面共用 KismetWorkspace：确保「按需补 Import」等逻辑只有一份实现
+    var work = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(outPath))!, "_kgen");
+    var ws = KismetWorkspace.Open(
+        File.ReadAllBytes(assetPath),
+        File.ReadAllBytes(Path.ChangeExtension(assetPath, ".uexp")),
+        File.ReadAllBytes(usmapPath),
+        work);
 
-    var before = fn.ScriptBytecode?.Length ?? 0;
-    var vars = ExpressionWalker.BuildVariableIndex(fn.ScriptBytecode!);
-    var funcs = ImportIndex.BuildFunctionIndex(asset);
+    var before = ws.ExpressionCount(funcName);
+    if (before == 0) { Console.Error.WriteLine($"找不到函数或函数无字节码: {funcName}"); return 1; }
 
-    var exprs = KismetCompiler.CompileToExpressions(
-        nodes, vars, funcs,
-        e => e.GetSize(asset),
-        name => new FName(asset, name));
-    fn.ScriptBytecode = exprs.ToArray();
-    asset.Write(outPath);
+    var (ops, hex, bytes) = ws.Generate(nodes, funcName);
+    Console.WriteLine($"[gen] {funcName}: {before} 条 -> {ops.Count} 条（{string.Join(" -> ", ops)}）");
 
-    Console.WriteLine($"[gen] {funcName}: {before} 条 -> {exprs.Count} 条（{string.Join(" -> ", exprs.Select(x => x.Inst))}）");
+    var saved = ws.Save(work, Path.GetFileName(outPath));
+    File.WriteAllBytes(outPath, saved.UAsset);
+    File.WriteAllBytes(Path.ChangeExtension(outPath, ".uexp"), saved.UExp);
+    Console.WriteLine($"[gen] 已写出 {outPath}（uasset {saved.UAsset.Length} / uexp {saved.UExp.Length} 字节）");
 
-    var check = new UAsset(outPath, EngineVersion.VER_UE5_6, new Usmap(usmapPath));
-    var fn2 = check.Exports.OfType<FunctionExport>().First(x => x.ObjectName.ToString() == funcName);
-    Console.WriteLine($"[gen] 读回 {fn2.ScriptBytecode!.Length} 条: {string.Join(" -> ", fn2.ScriptBytecode.Select(x => x.Inst))}");
+    var check = KismetWorkspace.Open(saved.UAsset, saved.UExp, File.ReadAllBytes(usmapPath), work + "-check");
+    Console.WriteLine($"[gen] 读回 {check.ExpressionCount(funcName)} 条（函数总数 {check.Functions.Count}）");
     return 0;
 }
 
@@ -154,7 +71,7 @@ if (args.Length >= 3 && args[0] == "--list")
 
 if (args.Length >= 6 && args[0] == "--json")
 {
-    var nodes = ParseNodes(File.ReadAllText(args[1]));
+    var nodes = KismetWorkspace.ParseNodes(File.ReadAllText(args[1]));
     return Run(nodes, args[2], args[3], args[4], args[5]);
 }
 

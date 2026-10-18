@@ -64,6 +64,10 @@ public sealed class KismetWorkspace
             : ExpressionWalker.BuildVariableIndex(fn.ScriptBytecode!).Keys.ToArray();
     }
 
+    /// <summary>某个函数当前的表达式条数（用于「改前/改后」对比）。</summary>
+    public int ExpressionCount(string functionName)
+        => FindFunction(functionName)?.ScriptBytecode?.Length ?? 0;
+
     /// <summary>可调用的函数导入（名字 → 索引），供 UI 提示用。</summary>
     public IReadOnlyDictionary<string, FPackageIndex> FunctionImports => ImportIndex.BuildFunctionIndex(_asset);
 
@@ -72,11 +76,12 @@ public sealed class KismetWorkspace
     /// 返回生成结果的指令名序列与序列化后的十六进制。
     /// </summary>
     public (IReadOnlyList<string> Opcodes, string Hex, int Bytes) Generate(string json, string functionName)
+        => Generate(ParseNodes(json), functionName);
+
+    public (IReadOnlyList<string> Opcodes, string Hex, int Bytes) Generate(IReadOnlyList<KNode> nodes, string functionName)
     {
         var fn = FindFunction(functionName)
                  ?? throw new InvalidOperationException($"找不到函数: {functionName}");
-
-        var nodes = ParseNodes(json);
         var variables = ExpressionWalker.BuildVariableIndex(fn.ScriptBytecode!);
 
         // 调用目标若还没出现在 Import 表里，先补一条（克隆现有函数导入的结构）
