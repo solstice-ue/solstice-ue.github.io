@@ -193,3 +193,43 @@ new KismetPropertyPointer(new FFieldPath { Path = [...], ResolvedOwner = ... })
 ```
 
 实测真实字节码里的 65 个变量表达式**全部**是 `Old=null, New=有`，与此一致。
+
+## 13. 生成能力现状（2026-10-17）
+
+### 已打通：读 → 生成 → 写回 → 读回验证
+
+| 指令 | 生成 | 写回资产后读回 |
+|---|---|---|
+| `EX_IntConst` | ✅ | ✅ |
+| `EX_LocalVariable` | ✅ | ✅ |
+| `EX_Return` / `EX_EndOfScript` | ✅ | ✅ |
+| `EX_FinalFunction`（带参数） | ✅ | ✅ |
+| `EX_Jump` / `EX_JumpIfNot` | ✅ | 字节布局实测 |
+| `EX_Let`（赋值） | ✅ | ✅ |
+
+端到端验证过的三条链路：
+
+1. `ExecuteUbergraph` 的 56 条表达式读出 → 写出 → 与原 `.uexp` 偏移 4217 处
+   **1832 字节逐字节相同**
+2. 生成 `return 42;` → 替换 → 写出 `.uasset` → 重新加载读回 2 条，值 42
+3. 生成 `EqualEqual_ByteByte(7, EntryPoint)` → 写回 → 读回 `StackNode=-18`、参数 2 个
+4. 生成 `Set EntryPoint = 9` → 写回 → 读回 `Let`、值 9
+
+### 关键结构（实测）
+
+| 结构 | 要点 |
+|---|---|
+| `FFieldPath` | `Path`（`FName[]`，变量名）+ `ResolvedOwner`（`FPackageIndex`，正=导出/负=导入） |
+| `KismetPropertyPointer` | 必须用 `New`（`FFieldPath`）形态；`Old` 形态在 UE5.6 会 NRE |
+| `EX_Let` | 需要 `Value`（指针）与 `Variable`（表达式）**同时**给 |
+| `EX_JumpIfNot` | 条件表达式**内嵌**在指令里，不是数组独立项 |
+| 跳转操作数 | 序列化字节流的**字节偏移**，不是表达式下标 |
+
+### 尚未覆盖
+
+| 项 | 影响 |
+|---|---|
+| `EX_Context` / `EX_LocalVirtualFunction` | 跨对象调用、虚函数调用（ubergraph 里很常见） |
+| `LoadedProperties` | 生成新函数时按签名排参数顺序 |
+| 新增 Import 条目 | 现在只能复用资产已有的 Import |
+| `/ukapi` 页面接真实字节 | 页面目前只显示指令名；显示字节需要页面上有已加载的 `UAsset`（`AssetBinaryWriter` 需要它） |
