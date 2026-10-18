@@ -82,6 +82,39 @@ static int Run(List<KNode> nodes, string assetPath, string usmapPath, string fun
     return 0;
 }
 
+if (args.Length >= 3 && args[0] == "--list")
+{
+    // 列出资产里的函数与某个函数的可用变量，方便拼命令
+    var listAsset = new UAsset(args[1], EngineVersion.VER_UE5_6, new Usmap(args[2]));
+    var fns = listAsset.Exports.OfType<FunctionExport>()
+        .Where(x => x.ScriptBytecode is { Length: > 0 })
+        .ToArray();
+
+    Console.WriteLine($"[list] 带字节码的函数 {fns.Length} 个");
+    foreach (var f in fns.Take(20))
+    {
+        Console.WriteLine($"  {f.ObjectName}  ({f.ScriptBytecode!.Length} 条)");
+    }
+
+    Console.WriteLine("[list] 可调用的函数导入:");
+    foreach (var kv in ImportIndex.BuildFunctionIndex(listAsset).Take(12))
+    {
+        Console.WriteLine($"  {kv.Key} -> {kv.Value.Index}");
+    }
+
+    if (fns.Length > 0)
+    {
+        var vars = ExpressionWalker.BuildVariableIndex(fns[0].ScriptBytecode!);
+        Console.WriteLine($"[list] {fns[0].ObjectName} 的变量 ({vars.Count} 个):");
+        foreach (var k in vars.Keys.Take(12))
+        {
+            Console.WriteLine($"  {k}");
+        }
+    }
+
+    return 0;
+}
+
 if (args.Length >= 6 && args[0] == "--json")
 {
     var nodes = ParseNodes(File.ReadAllText(args[1]));
