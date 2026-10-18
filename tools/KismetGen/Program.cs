@@ -56,6 +56,11 @@ static List<KNode> ParseList(JsonElement array)
                     n.GetProperty("function").GetString()!,
                     cargs));
                 break;
+            case "assign-bool":
+                nodes.Add(new AssignBoolNode(
+                    n.GetProperty("var").GetString()!,
+                    n.GetProperty("value").GetBoolean()));
+                break;
             case "virtual-call":
             {
                 var vargs = new List<KArg>();
