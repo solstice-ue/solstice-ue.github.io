@@ -498,3 +498,44 @@ var asset = new UAsset(reader, EngineVersion.VER_UE5_6, usmap);
 
 **浏览器内完成「解析资产 → 生成字节码 → 写回 → 读回验证」没有已知技术障碍。**
 剩余的是工程成本：UAssetAPI 的 WASM 包体积、大资产的内存占用、下载产物的 UX。
+
+## 23. GitHub Pages 的路由部署（已解决并验证）
+
+### 问题
+
+GitHub Pages 没有 SPA 回退，客户端路由 `/wasm`、`/ukapi` 等直接访问会 404。
+
+### 修法
+
+发布目标里为每个路由生成一份 `index.html`：
+
+```xml
+<ItemGroup>
+  <SpaRoute Include="assets;bytecode;graph;ukapi;wasm" />
+</ItemGroup>
+
+<Target Name="CopySpaFallbackTo404" AfterTargets="Publish">
+  <Copy SourceFiles="$(PublishDir)wwwroot/index.html"
+        DestinationFiles="$(PublishDir)wwwroot/404.html" />
+  <MakeDir Directories="@(SpaRoute->'$(PublishDir)wwwroot/%(Identity)')" />
+  <Copy SourceFiles="@(SpaRoute->'$(PublishDir)wwwroot/index.html')"
+        DestinationFiles="@(SpaRoute->'$(PublishDir)wwwroot/%(Identity)/index.html')" />
+</Target>
+```
+
+要点：`Copy` 的 `SourceFiles` 与 `DestinationFiles` 项数必须相同（否则 MSB3094），
+所以源也要用 `@(SpaRoute->...)` 展开。`404.html` 保留给真正的未知路径。
+
+### 实测
+
+- 静态：`/`、`/wasm`、`/wasm/`、`/ukapi`、`/ukapi/`、`/assets`、`/bytecode`、`/graph` 全部 200
+- 重定向：`/wasm` 返回 **301 → `/wasm/`**（Pages 对目录的行为）
+- 浏览器：访问 `https://solstice-ue.github.io/wasm/` 渲染出
+  h1「WASM · 浏览器内生成」与 3 个文件输入，**不是** not-found 页
+
+结论：**Blazor Router 能匹配带尾斜杠的 URL**，不需要额外加 `@page "/wasm/"` 别名。
+
+### 教训
+
+`git add -A` 会把 `publish/` 构建产物一起加进来导致提交失败（exit 128）。
+`publish/` 已加入 `.gitignore`。
