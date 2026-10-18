@@ -1,6 +1,7 @@
 @page "/wasm"
 @using Microsoft.AspNetCore.Components.Forms
 @using Solstice.Core.Kismet
+@using Solstice.Core.Pak
 @inject IJSRuntime JS
 
 <PageTitle>Solstice · WASM 生成</PageTitle>
@@ -71,10 +72,20 @@
                     }
                 </tbody>
             </table>
-            <div style="margin-top:10px; display:flex; gap:8px;">
+            <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="AddNode">+ 添加节点</FlareButton>
                 <FlareButton Variant="ButtonVariant.Filled" OnClick="Generate">生成</FlareButton>
-                <FlareButton Variant="ButtonVariant.Outlined" OnClick="DownloadAsync" Disabled="@(_saved is null)">下载资产</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="DownloadAsync" Disabled="@(_saved is null)">下载 uasset/uexp</FlareButton>
+            </div>
+
+            <div style="margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <span class="solstice-muted">pak 内路径：</span>
+                <input class="w-input" style="max-width:400px;" @bind="_contentPath" @bind:event="oninput"
+                       placeholder="Blueprints/Cards/card_brawl_test1" />
+                <FlareButton Variant="ButtonVariant.Filled" OnClick="DownloadPakAsync" Disabled="@(_saved is null)">下载 .pak</FlareButton>
+            </div>
+            <div class="solstice-muted" style="margin-top:6px; font-size:12px;">
+                mount point 固定 <code>../../../kards/Content/</code>，条目名为「路径 + .uasset/.uexp」。
             </div>
         </FlareCard>
 
@@ -145,6 +156,7 @@
     private string _hex = "";
     private int _byteCount;
     private KismetWorkspace.SavedAsset? _saved;
+    private string _contentPath = "";
 
     private string _status = "等待文件";
     private string _error = "";
@@ -263,5 +275,46 @@
         await JS.InvokeVoidAsync("solsticeDownload", "out.uasset", Convert.ToBase64String(_saved.UAsset));
         await JS.InvokeVoidAsync("solsticeDownload", "out.uexp", Convert.ToBase64String(_saved.UExp));
         _status = "已触发下载（out.uasset / out.uexp）";
+    }
+
+    /// <summary>
+    /// 把生成的 uasset/uexp 打成一个 pak（宽 mount point + 相对路径条目名）。
+    /// 格式已用样本包逐字节复现验证过。
+    /// </summary>
+    private async Task DownloadPakAsync()
+    {
+        if (_saved is null) { return; }
+
+        var path = (_contentPath ?? "").Trim().Trim('/');
+        if (path.Length == 0)
+        {
+            _error = "请先填写 pak 内路径，例如 Blueprints/Cards/card_brawl_test1";
+            return;
+        }
+
+        path = path.Replace('\\', '/');
+        if (path.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+        {
+            path = path[..^".uasset".Length];
+        }
+
+        try
+        {
+            var entries = new List<PakEntry>
+            {
+                new($"{path}.uasset", _saved.UAsset),
+                new($"{path}.uexp", _saved.UExp)
+            };
+
+            var pak = PakWriter.Build("../../../kards/Content/", entries);
+            var name = Path.GetFileName(path) + ".pak";
+            await JS.InvokeVoidAsync("solsticeDownload", name, Convert.ToBase64String(pak));
+            _status = $"已生成 {name}（{pak.Length} 字节，2 个条目）";
+        }
+        catch (Exception ex)
+        {
+            _error = $"{ex.GetType().Name}: {ex.Message}";
+            _status = "打包失败";
+        }
     }
 }

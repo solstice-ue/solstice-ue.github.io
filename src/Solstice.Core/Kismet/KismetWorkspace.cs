@@ -76,7 +76,32 @@ public sealed class KismetWorkspace
     /// 返回生成结果的指令名序列与序列化后的十六进制。
     /// </summary>
     public (IReadOnlyList<string> Opcodes, string Hex, int Bytes) Generate(string json, string functionName)
-        => Generate(ParseNodes(json), functionName);
+    {
+        List<KNode> nodes;
+        try
+        {
+            nodes = ParseNodes(json);
+        }
+        catch (JsonException ex)
+        {
+            // 把收到的原文带进异常，否则只看到行列号无法定位
+            throw new InvalidOperationException(
+                $"节点 JSON 解析失败：{ex.Message}\n收到的内容：{Preview(json)}", ex);
+        }
+
+        return Generate(nodes, functionName);
+    }
+
+    private static string Preview(string s)
+    {
+        if (string.IsNullOrEmpty(s))
+        {
+            return "(空字符串)";
+        }
+
+        var shown = s.Length <= 400 ? s : s[..400] + "…";
+        return shown.Replace("\r", "\\r").Replace("\n", "\\n");
+    }
 
     public (IReadOnlyList<string> Opcodes, string Hex, int Bytes) Generate(IReadOnlyList<KNode> nodes, string functionName)
     {
