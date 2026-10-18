@@ -7,135 +7,226 @@
     <div class="solstice-head">
         <h1 class="solstice-h1">UKAPI · 生成</h1>
         <span class="solstice-spacer"></span>
-        <span class="solstice-muted">@_instructions.Count 条指令 · 联动编译</span>
+        <span class="solstice-muted">@_instructions.Count 条指令 · @_connections.Count 条连线</span>
     </div>
 
-    <div style="display:grid; grid-template-columns:minmax(320px,1fr) minmax(420px,1.2fr); gap:16px; align-items:start;">
+    <div style="display:grid; grid-template-columns:minmax(300px,1fr) 460px; gap:16px; align-items:start;">
 
-        <!-- 左：字节码预览 -->
-        <FlareCard Style="height:70vh; display:flex; flex-direction:column; overflow:hidden">
-            <div class="solstice-card-title">字节码预览</div>
-            <div style="flex:1; overflow:auto; font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.75;">
+        <FlareCard Style="height:72vh; display:flex; flex-direction:column; overflow:hidden">
+            <div class="solstice-card-title">字节码预览（跳转为字节偏移）</div>
+            <div style="flex:1; overflow:auto; font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.7;">
                 @for (var i = 0; i < _instructions.Count; i++)
                 {
                     var ins = _instructions[i];
                     <div style="display:flex; gap:10px; white-space:pre;">
-                        <span style="color:var(--flare-color-on-surface-variant); opacity:.6;">@i.ToString("000")</span>
-                        <span style="color:var(--flare-color-on-surface-variant); opacity:.55;">@ins.TokenHex</span>`n                        <span style="color:@OpcodeColor(ins.Opcode);">@ins.Opcode</span>
-                        @if (!string.IsNullOrEmpty(ins.Operand))
-                        {
-                            <span style="color:var(--flare-color-on-surface-variant);">@ins.Operand</span>
-                        }
+                        <span style="opacity:.45;">@i.ToString("000")</span>
+                        <span style="opacity:.55; width:34px;">@ins.TokenHex</span>
+                        <span style="color:@OpcodeColor(ins.Opcode); width:190px;">@ins.Opcode</span>
+                        <span style="opacity:.7;">@ins.Operand</span>
                         @if (ins.JumpTarget is { } t)
                         {
-                            <span style="color:var(--flare-color-tertiary);">→ @t.ToString("000")</span>
+                            <span style="color:var(--flare-color-tertiary);">→ @t</span>
                         }
                     </div>
                 }
             </div>
         </FlareCard>
 
-        <!-- 右：平铺节点列表 -->
-        <div style="height:70vh; overflow:auto; display:flex; flex-direction:column; gap:8px;">
+        <div style="height:72vh; overflow:auto; position:relative;"
+             @onmousemove="OnMouseMove" @onmouseup="OnMouseUp">
+            <svg width="460" height="@(_nodes.Count * RowHeight)" style="position:absolute; left:0; top:0; pointer-events:none;">
+                @foreach (var c in _connections)
+                {
+                    var a = PinPoint(c.FromNode, c.FromPin);
+                    var b = PinPoint(c.ToNode, c.ToPin);
+                    <path d="@Curve(a, b)" stroke="@StrokeFor(c)" stroke-width="2" fill="none" />
+                }
+                @if (_dragFrom is { } df && _dragPos is { } dp)
+                {
+                    var a = PinPoint(df.Node, df.Pin);
+                    <path d="@Curve(a, dp)" stroke="var(--flare-color-primary)" stroke-width="2"
+                          stroke-dasharray="4 3" fill="none" />
+                }
+            </svg>
 
-            <FlareCard>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span class="pin pin-exec"></span>
-                    <strong>If</strong>
-                    <span class="solstice-muted">条件来自局部变量</span>
-                </div>
-                <div style="margin-left:14px; margin-top:8px; display:flex; align-items:center; gap:8px;">
-                    <span class="pin pin-bool"></span>
-                    <span class="solstice-muted">bool</span>
-                    <input class="solstice-search" style="min-width:0; width:180px; padding:6px 12px;"
-                           value="@_conditionVar" @oninput="OnConditionChanged" />
-                </div>
-            </FlareCard>
+            @for (var i = 0; i < _nodes.Count; i++)
+            {
+                var node = _nodes[i];
+                var row = i;
+                <div style="position:absolute; left:0; top:@(row * RowHeight)px; width:460px; height:@(RowHeight - 8)px;
+                            border:1px solid var(--flare-color-outline-variant); border-radius:12px;
+                            background:var(--flare-color-surface-container-low);">
+                    <div style="padding:6px 16px; font-weight:600; font-size:13px;">@node.Title</div>
 
-            <FlareCard>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span class="pin pin-exec"></span>
-                    <strong>Call AddIntelToCard</strong>
-                </div>
-                <div style="margin-left:14px; margin-top:8px; display:flex; flex-direction:column; gap:6px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span class="pin pin-int"></span><span class="solstice-muted">in CardID</span>
-                        <input class="solstice-search" style="min-width:0; width:140px; padding:6px 12px;"
-                               value="@_cardId" @oninput="OnCardIdChanged" />
-                    </div>
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span class="pin pin-int"></span><span class="solstice-muted">in amount</span>
-                        <input class="solstice-search" style="min-width:0; width:140px; padding:6px 12px;"
-                               value="@_amount" @oninput="OnAmountChanged" />
-                    </div>
-                </div>
-            </FlareCard>
+                    @for (var p = 0; p < node.Inputs.Count; p++)
+                    {
+                        var pin = node.Inputs[p];
+                        <div style="position:absolute; left:6px; top:@(PinY(p))px; display:flex; align-items:center; gap:8px; font-size:12px;">
+                            <span class="pin @PinClass(pin.Type)"
+                                  @onmousedown="@(() => StartDrag(node.Id, pin.Id))"
+                                  @onmouseup="@(() => EndDrag(node.Id, pin.Id))"></span>
+                            <span>@pin.Label</span>
+                        </div>
+                    }
 
-            <FlareCard>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span class="pin pin-exec"></span>
-                    <strong>Return</strong>
+                    @for (var p = 0; p < node.Outputs.Count; p++)
+                    {
+                        var pin = node.Outputs[p];
+                        <div style="position:absolute; right:6px; top:@(PinY(p))px; display:flex; align-items:center; gap:8px; font-size:12px;">
+                            <span>@pin.Label</span>
+                            <span class="pin @PinClass(pin.Type)"
+                                  @onmousedown="@(() => StartDrag(node.Id, pin.Id))"
+                                  @onmouseup="@(() => EndDrag(node.Id, pin.Id))"></span>
+                        </div>
+                    }
                 </div>
-            </FlareCard>
-
-            <div class="solstice-note">
-                左侧随右侧输入实时重编译。当前只生成指令列表，尚未序列化进 uasset。
-            </div>
+            }
         </div>
+    </div>
+
+    <div class="solstice-note" style="margin-top:12px">
+        从任一插销按住拖到另一个插销即可连线（同类型才能连）。左侧指令随节点参数实时重编译。
     </div>
 </div>
 
 <style>
-    .pin { display:inline-block; width:10px; height:10px; border-radius:50%; flex:none; }
-    .pin-exec { background:#e8def8; border:2px solid #6750a4; }
-    .pin-int { background:#b2f1c5; border:2px solid #2e6c47; }
-    .pin-bool { background:#ffdea6; border:2px solid #7d5700; }
+    .pin {
+        display:inline-block; width:12px; height:12px; border-radius:50%; flex:none;
+        cursor:crosshair; border:2px solid transparent;
+    }
+    .pin:hover { transform:scale(1.3); }
+    .pin-exec { background:#e8def8; border-color:#6750a4; }
+    .pin-int { background:#b2f1c5; border-color:#2e6c47; }
+    .pin-bool { background:#ffdea6; border-color:#7d5700; }
+    .pin-object { background:#cde5ff; border-color:#00639b; }
 </style>
 
 @code {
+    private const int RowHeight = 96;
+
+    private sealed record UiPin(string Id, string Label, PinType Type);
+    private sealed record UiNode(int Id, string Title, List<UiPin> Inputs, List<UiPin> Outputs);
+    private sealed record Connection(int FromNode, string FromPin, int ToNode, string ToPin);
+
+    private List<UiNode> _nodes = [];
+    private readonly List<Connection> _connections = [];
+    private (int Node, string Pin)? _dragFrom;
+    private (double X, double Y)? _dragPos;
+
     private string _conditionVar = "IsElite";
     private string _cardId = "CardID";
     private string _amount = "1";
     private IReadOnlyList<KismetInstruction> _instructions = [];
 
-    protected override void OnInitialized() => Recompile();
-
-    private void OnConditionChanged(ChangeEventArgs e)
+    protected override void OnInitialized()
     {
-        _conditionVar = e.Value?.ToString() ?? "";
+        _nodes =
+        [
+            new(0, "If", [new("in-exec", "exec", PinType.Exec), new("in-cond", "bool", PinType.Bool)],
+                [new("out-exec", "exec", PinType.Exec)]),
+            new(1, "Call AddIntelToCard",
+                [new("in-exec", "exec", PinType.Exec), new("in-card", "CardID int", PinType.Int), new("in-amt", "amount int", PinType.Int)],
+                [new("out-exec", "exec", PinType.Exec)]),
+            new(2, "Return", [new("in-exec", "exec", PinType.Exec)], [])
+        ];
+
+        _connections.Add(new Connection(0, "out-exec", 1, "in-exec"));
+        _connections.Add(new Connection(1, "out-exec", 2, "in-exec"));
         Recompile();
     }
 
-    private void OnCardIdChanged(ChangeEventArgs e)
+    private void StartDrag(int node, string pin)
     {
-        _cardId = e.Value?.ToString() ?? "";
-        Recompile();
+        _dragFrom = (node, pin);
+        _dragPos = null;
     }
 
-    private void OnAmountChanged(ChangeEventArgs e)
+    private void OnMouseMove(MouseEventArgs e)
     {
-        _amount = e.Value?.ToString() ?? "";
-        Recompile();
+        if (_dragFrom is null) return;
+        _dragPos = (e.OffsetX, e.OffsetY);
     }
+
+    private void OnMouseUp()
+    {
+        _dragFrom = null;
+        _dragPos = null;
+    }
+
+    private void EndDrag(int node, string pin)
+    {
+        if (_dragFrom is not { } from) return;
+
+        _dragFrom = null;
+        _dragPos = null;
+
+        if (from.Node == node && from.Pin == pin) return;
+
+        var a = FindPin(from.Node, from.Pin);
+        var b = FindPin(node, pin);
+        if (a is null || b is null || a.Type != b.Type) return;
+
+        if (_connections.Any(c => c.FromNode == from.Node && c.FromPin == from.Pin && c.ToNode == node && c.ToPin == pin))
+            return;
+
+        _connections.Add(new Connection(from.Node, from.Pin, node, pin));
+    }
+
+    private UiPin? FindPin(int node, string pin)
+    {
+        var n = _nodes.FirstOrDefault(x => x.Id == node);
+        if (n is null) return null;
+        return n.Inputs.Concat(n.Outputs).FirstOrDefault(p => p.Id == pin);
+    }
+
+    private static int PinY(int index) => 34 + index * 22;
+
+    private (double X, double Y) PinPoint(int node, string pin)
+    {
+        var n = _nodes.First(x => x.Id == node);
+        var inIdx = n.Inputs.FindIndex(p => p.Id == pin);
+        var outIdx = n.Outputs.FindIndex(p => p.Id == pin);
+        var x = inIdx >= 0 ? 16 : 444;
+        var y = node * RowHeight + PinY(Math.Max(inIdx >= 0 ? inIdx : outIdx, 0));
+        return (x, y);
+    }
+
+    private static string Curve((double X, double Y) a, (double X, double Y) b)
+    {
+        var dx = Math.Abs(b.X - a.X) * 0.5 + 20;
+        return $"M {a.X} {a.Y} C {a.X + dx} {a.Y}, {b.X - dx} {b.Y}, {b.X} {b.Y}";
+    }
+
+    private string StrokeFor(Connection c) => FindPin(c.FromNode, c.FromPin)?.Type switch
+    {
+        PinType.Exec => "#6750a4",
+        PinType.Int => "#2e6c47",
+        PinType.Bool => "#7d5700",
+        _ => "#00639b"
+    };
+
+    private static string PinClass(PinType t) => t switch
+    {
+        PinType.Exec => "pin-exec",
+        PinType.Int => "pin-int",
+        PinType.Bool => "pin-bool",
+        _ => "pin-object"
+    };
+
+    private void OnConditionChanged(ChangeEventArgs e) { _conditionVar = e.Value?.ToString() ?? ""; Recompile(); }
+    private void OnCardIdChanged(ChangeEventArgs e) { _cardId = e.Value?.ToString() ?? ""; Recompile(); }
+    private void OnAmountChanged(ChangeEventArgs e) { _amount = e.Value?.ToString() ?? ""; Recompile(); }
 
     private void Recompile()
     {
         var amount = int.TryParse(_amount, out var v) ? v : 0;
-
         var nodes = new List<KNode>
         {
-            new IfNode(
-                new LocalArg(string.IsNullOrWhiteSpace(_conditionVar) ? "Condition" : _conditionVar),
-                [
-                    new CallNode("AddIntelToCard",
-                    [
-                        new LocalArg(string.IsNullOrWhiteSpace(_cardId) ? "CardID" : _cardId),
-                        new IntArg(amount)
-                    ])
-                ]),
+            new IfNode(new LocalArg(string.IsNullOrWhiteSpace(_conditionVar) ? "Condition" : _conditionVar),
+                [new CallNode("AddIntelToCard",
+                    [new LocalArg(string.IsNullOrWhiteSpace(_cardId) ? "CardID" : _cardId), new IntArg(amount)])]),
             new ReturnNode()
         };
-
         _instructions = KismetCompiler.Compile(nodes);
     }
 
