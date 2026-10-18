@@ -270,3 +270,19 @@ public UsmapBinaryReader(Stream stream, Usmap file)   // 需要 Usmap 实例
 `AssetBinaryReader` 可以脱离 `UAsset` 构造（asset 参数可空），所以资产流式加载有戏；
 但 `UsmapBinaryReader` 要求传一个 `Usmap` 实例，构造上是循环依赖，
 `new Usmap(path)` 仍是唯一简单入口 —— 浏览器内没有路径，这里是真正的卡点。
+
+## 15. EX_Context 接入编译器的前置约束
+
+`EX_Context.Offset` 必须等于 `ContextExpression.GetSize(asset)`，而 `GetSize` **需要一个 `UAsset` 实例**。
+
+但 `KismetCompiler.CompileToExpressions` 目前是无状态的纯函数（只接收节点与索引，不碰资产）。
+要让 `EX_Context` 进入编译器，必须二选一：
+
+| 方案 | 说明 |
+|---|---|
+| 给编译器传入 `UAsset` | 直接调 `GetSize`，最准确；但 Core 会依赖资产实例，降低可测试性 |
+| 传入「计算 size 的回调」 | `Func<KismetExpression, uint>`，由调用方（CLI / 测试）提供，保持 Core 无状态 |
+
+**倾向方案二**：编译器仍然不持有资产，但能拿到准确的长度。
+
+这也解释了为什么 `EX_Context` 目前只是「能构造、能往返」，还没接进 `CompileToExpressions`。
