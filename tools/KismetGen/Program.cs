@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Solstice.Core.Kismet;
+using SolsticePak = Solstice.Core.Pak;
 using UAssetAPI;
 using UAssetAPI.UnrealTypes;
 using UAssetAPI.Unversioned;
@@ -69,6 +70,24 @@ if (args.Length >= 3 && args[0] == "--list")
     return 0;
 }
 
+if (args.Length >= 4 && args[0] == "--pak")
+{
+    // KismetGen --pak <out.pak> <mountPoint> <目录>
+    var outPak = args[1];
+    var mount = args[2];
+    var dir = Path.GetFullPath(args[3]);
+
+    var entries = Directory.GetFiles(dir, "*", SearchOption.AllDirectories)
+        .OrderBy(x => x, StringComparer.Ordinal)
+        .Select(x => new SolsticePak.PakEntry(Path.GetRelativePath(dir, x).Replace('\\', '/'), File.ReadAllBytes(x)))
+        .ToList();
+
+    var bytes = SolsticePak.PakWriter.Build(mount, entries);
+    File.WriteAllBytes(outPak, bytes);
+    Console.WriteLine($"[pak] mount='{mount}'  {entries.Count} 个条目 -> {outPak}（{bytes.Length} 字节）");
+    foreach (var en in entries) Console.WriteLine($"  {en.Name}  ({en.Data.Length})");
+    return 0;
+}
 if (args.Length >= 6 && args[0] == "--json")
 {
     var nodes = KismetWorkspace.ParseNodes(File.ReadAllText(args[1]));

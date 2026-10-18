@@ -15,63 +15,86 @@
     <FlareCard>
         <div class="solstice-card-title">1. 载入资产</div>
         <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:10px;">
-            <label class="solstice-file">
-                <span>.uasset</span>
-                <InputFile OnChange="OnUassetAsync" accept=".uasset" />
-            </label>
-            <label class="solstice-file">
-                <span>.uexp</span>
-                <InputFile OnChange="OnUexpAsync" accept=".uexp" />
-            </label>
-            <label class="solstice-file">
-                <span>.usmap</span>
-                <InputFile OnChange="OnUsmapAsync" accept=".usmap" />
-            </label>
+            <label class="w-file"><span>.uasset</span><InputFile OnChange="OnUassetAsync" accept=".uasset" /></label>
+            <label class="w-file"><span>.uexp</span><InputFile OnChange="OnUexpAsync" accept=".uexp" /></label>
+            <label class="w-file"><span>.usmap</span><InputFile OnChange="OnUsmapAsync" accept=".usmap" /></label>
         </div>
         <div style="margin-top:12px;">
             <FlareButton Variant="ButtonVariant.Filled" OnClick="LoadAsync" Disabled="@(!_ready)">载入</FlareButton>
-        </div>
-        <div class="solstice-note" style="margin-top:10px;">
-            三个文件都会写进浏览器内存文件系统再按路径打开（实测可行）。
         </div>
     </FlareCard>
 
     @if (_functions.Count > 0)
     {
         <FlareCard Style="margin-top:12px">
-            <div class="solstice-card-title">2. 选择函数并生成</div>
+            <div class="solstice-card-title">2. 选择函数</div>
             <div style="margin-top:10px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                <select class="solstice-select" value="@_selected" @onchange="OnFunctionChanged">
-                    @foreach (var f in _functions)
-                    {
-                        <option value="@f">@f</option>
-                    }
+                <select class="w-select" value="@_selected" @onchange="OnFunctionChanged">
+                    @foreach (var f in _functions) { <option value="@f">@f</option> }
                 </select>
-                <span class="solstice-muted">变量 @_variables.Count 个</span>
+                <span class="solstice-muted">可用变量：</span>
+                @foreach (var v in _variables.Take(8))
+                {
+                    <span class="w-chip" @onclick="@(() => UseVariable(v))">@v</span>
+                }
             </div>
+        </FlareCard>
 
-            <textarea class="solstice-textarea" rows="12" @bind="_json" @bind:event="oninput"></textarea>
-
+        <FlareCard Style="margin-top:12px">
+            <div class="solstice-card-title">3. 节点</div>
+            <table class="w-table">
+                <thead>
+                    <tr><th>类型</th><th>变量</th><th>值</th><th>函数</th><th>owner（可选）</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < _specs.Count; i++)
+                    {
+                        var idx = i;
+                        var spec = _specs[idx];
+                        <tr>
+                            <td>
+                                <select class="w-select-sm" value="@spec.Kind" @onchange="@(e => spec.Kind = e.Value?.ToString() ?? "assign")">
+                                    <option value="assign">赋值</option>
+                                    <option value="assign-bool">布尔赋值</option>
+                                    <option value="call">调用</option>
+                                    <option value="context-call">跨对象调用</option>
+                                    <option value="virtual-call">虚调用</option>
+                                    <option value="return">返回</option>
+                                </select>
+                            </td>
+                            <td><input class="w-input" @bind="spec.Var" @bind:event="oninput" placeholder="变量名" /></td>
+                            <td><input class="w-input" type="number" @bind="spec.Value" @bind:event="oninput" /></td>
+                            <td><input class="w-input" @bind="spec.Function" @bind:event="oninput" placeholder="函数名" /></td>
+                            <td><input class="w-input" @bind="spec.Owner" @bind:event="oninput" placeholder="/Script/Engine.Actor" /></td>
+                            <td><FlareButton Variant="ButtonVariant.Text" OnClick="@(() => RemoveAt(idx))">删除</FlareButton></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
             <div style="margin-top:10px; display:flex; gap:8px;">
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="AddNode">+ 添加节点</FlareButton>
                 <FlareButton Variant="ButtonVariant.Filled" OnClick="Generate">生成</FlareButton>
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="DownloadAsync" Disabled="@(_saved is null)">下载资产</FlareButton>
             </div>
+        </FlareCard>
+
+        <FlareCard Style="margin-top:12px">
+            <div class="solstice-card-title">4. 生成的节点 JSON</div>
+            <pre class="w-pre">@NodesJson</pre>
         </FlareCard>
     }
 
     @if (_opcodes.Count > 0)
     {
         <FlareCard Style="margin-top:12px">
-            <div class="solstice-card-title">3. 生成结果</div>
+            <div class="solstice-card-title">5. 生成结果 · @_byteCount 字节</div>
             <div style="margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:13px;">
-                @foreach (var (op, i) in _opcodes.Select((x, i) => (x, i)))
+                @for (var i = 0; i < _opcodes.Count; i++)
                 {
-                    <div><span style="opacity:.45">@i.ToString("000")</span>  @op</div>
+                    <div><span style="opacity:.45">@i.ToString("000")</span>  @_opcodes[i]</div>
                 }
             </div>
-            <div class="solstice-note" style="margin-top:10px;">@_byteCount 字节</div>
-            <pre style="margin-top:8px; padding:10px; border-radius:8px; overflow:auto; max-height:200px;
-                        background:var(--flare-color-surface-container-high); font-size:12px;">@_hex</pre>
+            <pre class="w-pre" style="max-height:200px;">@_hex</pre>
         </FlareCard>
     }
 
@@ -84,25 +107,40 @@
 </div>
 
 <style>
-    .solstice-file { display:flex; flex-direction:column; gap:6px; font-size:13px; }
-    .solstice-select { padding:8px 12px; border-radius:8px; border:1px solid var(--flare-color-outline);
-                       background:var(--flare-color-surface-container-low); color:inherit; min-width:320px; }
-    .solstice-textarea { width:100%; margin-top:10px; padding:12px; border-radius:10px; font-size:12.5px;
-                         font-family:'JetBrains Mono',monospace; border:1px solid var(--flare-color-outline);
-                         background:var(--flare-color-surface-container-low); color:inherit; }
+    .w-file { display:flex; flex-direction:column; gap:6px; font-size:13px; }
+    .w-select { padding:8px 12px; border-radius:8px; border:1px solid var(--flare-color-outline);
+                background:var(--flare-color-surface-container-low); color:inherit; min-width:300px; }
+    .w-select-sm { padding:5px 8px; border-radius:6px; border:1px solid var(--flare-color-outline);
+                   background:var(--flare-color-surface-container-low); color:inherit; }
+    .w-input { width:100%; padding:5px 8px; border-radius:6px; border:1px solid var(--flare-color-outline);
+               background:var(--flare-color-surface-container-low); color:inherit; font-size:12.5px; }
+    .w-chip { padding:3px 10px; border-radius:999px; font-size:12px; cursor:pointer;
+              background:var(--flare-color-surface-container-high); }
+    .w-chip:hover { background:var(--flare-color-primary-container); }
+    .w-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:12.5px; }
+    .w-table th { text-align:left; font-weight:600; padding:6px 8px; opacity:.7; }
+    .w-table td { padding:4px 8px; }
+    .w-pre { margin:8px 0 0; padding:10px; border-radius:8px; overflow:auto; max-height:260px;
+             background:var(--flare-color-surface-container-high); font-size:12px; }
 </style>
 
 @code {
-    private byte[]? _uasset;
-    private byte[]? _uexp;
-    private byte[]? _usmap;
+    private sealed class NodeSpec
+    {
+        public string Kind = "assign";
+        public string Var = "";
+        public int Value = 1;
+        public string Function = "";
+        public string Owner = "";
+    }
 
+    private byte[]? _uasset, _uexp, _usmap;
     private KismetWorkspace? _ws;
     private List<string> _functions = [];
     private List<string> _variables = [];
     private string _selected = "";
 
-    private string _json = "";
+    private List<NodeSpec> _specs = [];
     private List<string> _opcodes = [];
     private string _hex = "";
     private int _byteCount;
@@ -113,6 +151,31 @@
 
     private bool _ready => _uasset is not null && _uexp is not null && _usmap is not null;
 
+    private string NodesJson
+    {
+        get
+        {
+            var items = _specs.Select(ToJson).Where(x => x is not null);
+            return "{\n  \"nodes\": [\n    " + string.Join(",\n    ", items) + "\n  ]\n}";
+        }
+    }
+
+    private static string? ToJson(NodeSpec s) => s.Kind switch
+    {
+        "return" => "{ \"kind\": \"return\" }",
+        "assign" => $"{{ \"kind\": \"assign\", \"var\": \"{Esc(s.Var)}\", \"value\": {s.Value} }}",
+        "assign-bool" => $"{{ \"kind\": \"assign-bool\", \"var\": \"{Esc(s.Var)}\", \"value\": {s.Value != 0} }}",
+        "call" => $"{{ \"kind\": \"call\", \"function\": \"{Esc(s.Function)}\"{Owner(s)}, \"args\": [] }}",
+        "context-call" => $"{{ \"kind\": \"context-call\", \"object\": \"{Esc(s.Var)}\", \"function\": \"{Esc(s.Function)}\"{Owner(s)}, \"args\": [] }}",
+        "virtual-call" => $"{{ \"kind\": \"virtual-call\", \"function\": \"{Esc(s.Function)}\", \"args\": [] }}",
+        _ => null
+    };
+
+    private static string Owner(NodeSpec s)
+        => string.IsNullOrWhiteSpace(s.Owner) ? "" : $", \"owner\": \"{Esc(s.Owner)}\"";
+
+    private static string Esc(string s) => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+
     private async Task<byte[]> ReadAsync(IBrowserFile file)
     {
         using var ms = new MemoryStream();
@@ -120,23 +183,9 @@
         return ms.ToArray();
     }
 
-    private async Task OnUassetAsync(InputFileChangeEventArgs e)
-    {
-        _uasset = await ReadAsync(e.File);
-        _status = $"uasset {_uasset.Length} 字节";
-    }
-
-    private async Task OnUexpAsync(InputFileChangeEventArgs e)
-    {
-        _uexp = await ReadAsync(e.File);
-        _status = $"uexp {_uexp.Length} 字节";
-    }
-
-    private async Task OnUsmapAsync(InputFileChangeEventArgs e)
-    {
-        _usmap = await ReadAsync(e.File);
-        _status = $"usmap {_usmap.Length} 字节";
-    }
+    private async Task OnUassetAsync(InputFileChangeEventArgs e) { _uasset = await ReadAsync(e.File); _status = $"uasset {_uasset.Length} 字节"; }
+    private async Task OnUexpAsync(InputFileChangeEventArgs e) { _uexp = await ReadAsync(e.File); _status = $"uexp {_uexp.Length} 字节"; }
+    private async Task OnUsmapAsync(InputFileChangeEventArgs e) { _usmap = await ReadAsync(e.File); _status = $"usmap {_usmap.Length} 字节"; }
 
     private void LoadAsync()
     {
@@ -165,27 +214,26 @@
     private void RefreshVariables()
     {
         _variables = _ws is null ? [] : _ws.Variables(_selected).ToList();
-        _json = BuildJson();
+
+        _specs = [];
+        if (_variables.Count > 0)
+        {
+            _specs.Add(new NodeSpec { Kind = "assign", Var = _variables[0], Value = 5 });
+        }
+
+        _specs.Add(new NodeSpec { Kind = "return" });
+        _opcodes = [];
+        _saved = null;
     }
 
-    private string BuildJson()
+    private void UseVariable(string v)
     {
-        var v = _variables.FirstOrDefault() ?? "Var";
-        return $$"""
-        {
-          "nodes": [
-            { "kind": "assign", "var": "{{v}}", "value": 11 },
-            { "kind": "if",
-              "cond": { "var": "{{v}}" },
-              "then": [
-                { "kind": "virtual-call", "function": "{{_selected}}", "args": [ { "var": "{{v}}" } ] },
-                { "kind": "return" }
-              ] },
-            { "kind": "return" }
-          ]
-        }
-        """;
+        if (_specs.Count > 0) { _specs[0].Var = v; }
     }
+
+    private void AddNode() => _specs.Add(new NodeSpec { Kind = "return" });
+
+    private void RemoveAt(int i) { if (i >= 0 && i < _specs.Count) { _specs.RemoveAt(i); } }
 
     private void Generate()
     {
@@ -193,10 +241,9 @@
         _opcodes = [];
         _hex = "";
         _saved = null;
-
         try
         {
-            var (ops, hex, bytes) = _ws!.Generate(_json, _selected);
+            var (ops, hex, bytes) = _ws!.Generate(NodesJson, _selected);
             _opcodes = ops.ToList();
             _hex = hex;
             _byteCount = bytes;
@@ -212,11 +259,7 @@
 
     private async Task DownloadAsync()
     {
-        if (_saved is null)
-        {
-            return;
-        }
-
+        if (_saved is null) { return; }
         await JS.InvokeVoidAsync("solsticeDownload", "out.uasset", Convert.ToBase64String(_saved.UAsset));
         await JS.InvokeVoidAsync("solsticeDownload", "out.uexp", Convert.ToBase64String(_saved.UExp));
         _status = "已触发下载（out.uasset / out.uexp）";
