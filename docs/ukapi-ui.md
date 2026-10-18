@@ -342,3 +342,36 @@ AssignNode / CallNode / ContextCallNode / ReturnNode
 写回资产后读回，断言：
 - `back[0].Inst == "JumpIfNot"`，且 `CodeOffset` 落在 body 之后那条 `Nothing` 的偏移上
 - `EX_Jump` 的 `CodeOffset` 落在最后一条 `Nothing` 上
+
+## 18. EX_LocalVirtualFunction 的接入方案（待实施）
+
+结构已实测（见第 17 节后的记录）：
+
+```
+FName             VirtualFunctionName
+KismetExpression[] Parameters
+布局: token(0x45) + FName(8) + 参数 + EX_EndFunctionParms(0x16)
+空参数时 10 字节: 45-C2-00-00-00-00-00-00-00-16
+```
+
+### 障碍
+
+`VirtualFunctionName` 是 `FName`，构造需要 `new FName(asset, name)` —— **又需要 `UAsset`**。
+和 `EX_Context.Offset` 是同一类问题，解法也应一致：**加回调**。
+
+### 方案
+
+给 `CompileToExpressions` 再加一个可选参数：
+
+```csharp
+Func<string, FName>? resolveName = null
+```
+
+- CLI / 测试传入 `n => new FName(asset, n)`
+- Core 保持无状态
+- 若未提供 `resolveName`，虚函数调用退化为 `EX_Nothing` 并保持现有行为
+
+### 前置校验
+
+函数名必须**已存在于资产的名字表**（`asset.GetNameMapIndexList()` 或等价 API）。
+凭空造名字能写出字节，但读回会失败——生成器应先查名字表，查不到就报错而不是写坏数据。
