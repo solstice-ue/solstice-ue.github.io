@@ -244,7 +244,9 @@
     private string NodesJson => $$"""
 {
   "nodes": [
-    { "kind": "call", "function": "AddIntelToCard", "args": [ { "var": "{{_cardId}}" }, { "int": {{_amount}} } ] },
+    { "kind": "assign", "var": "{{_conditionVar}}", "value": {{_amount}} },
+    { "kind": "context-call", "object": "{{_cardId}}", "function": "AddIntelToCard", "args": [ { "int": {{_amount}} } ] },
+    { "kind": "call", "function": "AddIntelToCard", "args": [ { "var": "{{_cardId}}" } ] },
     { "kind": "return" }
   ]
 }
