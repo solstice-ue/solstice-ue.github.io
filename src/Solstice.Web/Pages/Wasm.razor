@@ -1,0 +1,224 @@
+@page "/wasm"
+@using Microsoft.AspNetCore.Components.Forms
+@using Solstice.Core.Kismet
+@inject IJSRuntime JS
+
+<PageTitle>Solstice · WASM 生成</PageTitle>
+
+<div class="solstice-page">
+    <div class="solstice-head">
+        <h1 class="solstice-h1">WASM · 浏览器内生成</h1>
+        <span class="solstice-spacer"></span>
+        <span class="solstice-muted">@_status</span>
+    </div>
+
+    <FlareCard>
+        <div class="solstice-card-title">1. 载入资产</div>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:10px;">
+            <label class="solstice-file">
+                <span>.uasset</span>
+                <InputFile OnChange="OnUassetAsync" accept=".uasset" />
+            </label>
+            <label class="solstice-file">
+                <span>.uexp</span>
+                <InputFile OnChange="OnUexpAsync" accept=".uexp" />
+            </label>
+            <label class="solstice-file">
+                <span>.usmap</span>
+                <InputFile OnChange="OnUsmapAsync" accept=".usmap" />
+            </label>
+        </div>
+        <div style="margin-top:12px;">
+            <FlareButton Variant="ButtonVariant.Filled" OnClick="LoadAsync" Disabled="@(!_ready)">载入</FlareButton>
+        </div>
+        <div class="solstice-note" style="margin-top:10px;">
+            三个文件都会写进浏览器内存文件系统再按路径打开（实测可行）。
+        </div>
+    </FlareCard>
+
+    @if (_functions.Count > 0)
+    {
+        <FlareCard Style="margin-top:12px">
+            <div class="solstice-card-title">2. 选择函数并生成</div>
+            <div style="margin-top:10px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <select class="solstice-select" value="@_selected" @onchange="OnFunctionChanged">
+                    @foreach (var f in _functions)
+                    {
+                        <option value="@f">@f</option>
+                    }
+                </select>
+                <span class="solstice-muted">变量 @_variables.Count 个</span>
+            </div>
+
+            <textarea class="solstice-textarea" rows="12" @bind="_json" @bind:event="oninput"></textarea>
+
+            <div style="margin-top:10px; display:flex; gap:8px;">
+                <FlareButton Variant="ButtonVariant.Filled" OnClick="Generate">生成</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="DownloadAsync" Disabled="@(_saved is null)">下载资产</FlareButton>
+            </div>
+        </FlareCard>
+    }
+
+    @if (_opcodes.Count > 0)
+    {
+        <FlareCard Style="margin-top:12px">
+            <div class="solstice-card-title">3. 生成结果</div>
+            <div style="margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:13px;">
+                @foreach (var (op, i) in _opcodes.Select((x, i) => (x, i)))
+                {
+                    <div><span style="opacity:.45">@i.ToString("000")</span>  @op</div>
+                }
+            </div>
+            <div class="solstice-note" style="margin-top:10px;">@_byteCount 字节</div>
+            <pre style="margin-top:8px; padding:10px; border-radius:8px; overflow:auto; max-height:200px;
+                        background:var(--flare-color-surface-container-high); font-size:12px;">@_hex</pre>
+        </FlareCard>
+    }
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <FlareCard Style="margin-top:12px">
+            <div style="color:var(--flare-color-error); white-space:pre-wrap;">@_error</div>
+        </FlareCard>
+    }
+</div>
+
+<style>
+    .solstice-file { display:flex; flex-direction:column; gap:6px; font-size:13px; }
+    .solstice-select { padding:8px 12px; border-radius:8px; border:1px solid var(--flare-color-outline);
+                       background:var(--flare-color-surface-container-low); color:inherit; min-width:320px; }
+    .solstice-textarea { width:100%; margin-top:10px; padding:12px; border-radius:10px; font-size:12.5px;
+                         font-family:'JetBrains Mono',monospace; border:1px solid var(--flare-color-outline);
+                         background:var(--flare-color-surface-container-low); color:inherit; }
+</style>
+
+@code {
+    private byte[]? _uasset;
+    private byte[]? _uexp;
+    private byte[]? _usmap;
+
+    private KismetWorkspace? _ws;
+    private List<string> _functions = [];
+    private List<string> _variables = [];
+    private string _selected = "";
+
+    private string _json = "";
+    private List<string> _opcodes = [];
+    private string _hex = "";
+    private int _byteCount;
+    private KismetWorkspace.SavedAsset? _saved;
+
+    private string _status = "等待文件";
+    private string _error = "";
+
+    private bool _ready => _uasset is not null && _uexp is not null && _usmap is not null;
+
+    private async Task<byte[]> ReadAsync(IBrowserFile file)
+    {
+        using var ms = new MemoryStream();
+        await file.OpenReadStream(maxAllowedSize: 512L * 1024 * 1024).CopyToAsync(ms);
+        return ms.ToArray();
+    }
+
+    private async Task OnUassetAsync(InputFileChangeEventArgs e)
+    {
+        _uasset = await ReadAsync(e.File);
+        _status = $"uasset {_uasset.Length} 字节";
+    }
+
+    private async Task OnUexpAsync(InputFileChangeEventArgs e)
+    {
+        _uexp = await ReadAsync(e.File);
+        _status = $"uexp {_uexp.Length} 字节";
+    }
+
+    private async Task OnUsmapAsync(InputFileChangeEventArgs e)
+    {
+        _usmap = await ReadAsync(e.File);
+        _status = $"usmap {_usmap.Length} 字节";
+    }
+
+    private void LoadAsync()
+    {
+        _error = "";
+        try
+        {
+            _ws = KismetWorkspace.Open(_uasset!, _uexp!, _usmap!, "/solstice-ws");
+            _functions = _ws.Functions.ToList();
+            _selected = _functions.FirstOrDefault() ?? "";
+            RefreshVariables();
+            _status = $"已载入：{_functions.Count} 个函数";
+        }
+        catch (Exception ex)
+        {
+            _error = $"{ex.GetType().Name}: {ex.Message}";
+            _status = "载入失败";
+        }
+    }
+
+    private void OnFunctionChanged(ChangeEventArgs e)
+    {
+        _selected = e.Value?.ToString() ?? "";
+        RefreshVariables();
+    }
+
+    private void RefreshVariables()
+    {
+        _variables = _ws is null ? [] : _ws.Variables(_selected).ToList();
+        _json = BuildJson();
+    }
+
+    private string BuildJson()
+    {
+        var v = _variables.FirstOrDefault() ?? "Var";
+        return $$"""
+        {
+          "nodes": [
+            { "kind": "assign", "var": "{{v}}", "value": 11 },
+            { "kind": "if",
+              "cond": { "var": "{{v}}" },
+              "then": [
+                { "kind": "virtual-call", "function": "{{_selected}}", "args": [ { "var": "{{v}}" } ] },
+                { "kind": "return" }
+              ] },
+            { "kind": "return" }
+          ]
+        }
+        """;
+    }
+
+    private void Generate()
+    {
+        _error = "";
+        _opcodes = [];
+        _hex = "";
+        _saved = null;
+
+        try
+        {
+            var (ops, hex, bytes) = _ws!.Generate(_json, _selected);
+            _opcodes = ops.ToList();
+            _hex = hex;
+            _byteCount = bytes;
+            _saved = _ws.Save("/solstice-ws");
+            _status = $"生成 {ops.Count} 条 / {bytes} 字节，已可下载";
+        }
+        catch (Exception ex)
+        {
+            _error = $"{ex.GetType().Name}: {ex.Message}";
+            _status = "生成失败";
+        }
+    }
+
+    private async Task DownloadAsync()
+    {
+        if (_saved is null)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("solsticeSaveBytes", "out.uasset", Convert.ToBase64String(_saved.UAsset));
+        await JS.InvokeVoidAsync("solsticeSaveBytes", "out.uexp", Convert.ToBase64String(_saved.UExp));
+        _status = "已触发下载（out.uasset / out.uexp）";
+    }
+}
