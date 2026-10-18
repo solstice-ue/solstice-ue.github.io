@@ -109,3 +109,7 @@ public sealed record ContextCallNode(string ObjectVariable, string Function, IRe
 /// </summary>
 public sealed record VirtualCallNode(string Function, IReadOnlyList<KArg> Args)
     : KNode($"Virtual {Function}");
+
+/// <summary>布尔赋值：编译成 EX_LetBool（VariableExpression + AssignmentExpression）。</summary>
+public sealed record AssignBoolNode(string VariableName, bool Value)
+    : KNode($"Set {VariableName} = {(Value ? "true" : "false")}");

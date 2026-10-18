@@ -258,6 +258,15 @@ public static class KismetCompiler
                     });
                     break;
 
+                case AssignBoolNode ab when variables is not null && variables.TryGetValue(ab.VariableName, out var bp):
+                    // EX_LetBool：变量用表达式表示（不像 EX_Let 还要单独的 Value 指针）
+                    result.Add(new EX_LetBool
+                    {
+                        VariableExpression = new EX_LocalVariable { Variable = bp },
+                        AssignmentExpression = ab.Value ? new EX_True() : new EX_False()
+                    });
+                    break;
+
                 case ReturnNode:
                     result.Add(new EX_Return { ReturnExpression = new EX_Nothing() });
                     break;
