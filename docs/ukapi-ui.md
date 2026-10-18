@@ -139,3 +139,18 @@ UAssetAPI 枚举逐条核对，不能直接照抄。
 因此生成 `EX_Context` **不需要预先知道目标函数的 vtable 偏移**，
 只要先构造好 `ContextExpression`、再取它的 size 填进 `Offset` 即可。
 这条纠正了此前「跨对象调用靠 vtable 偏移定位」的错误结论。
+
+## 10. UAssetAPI 没有字节码写入器
+
+全量检索 `UAssetAPI/Kismet/Bytecode`：只有 `Read` 与 `GetSize`，**没有任何 `Write`**。
+
+```
+Bytecode 目录下 void Write( 的匹配数：0
+Expressions 目录下 public override void Write 的匹配数：0
+```
+
+含义：**生成字节码的序列化器必须自己写**。UAssetAPI 只解决了「读」和「算长度」，
+「写」这块是空的——这是 UKAPI 真正的工作量所在。
+
+参照物是每个 `EX_*` 类的 `Read` 实现：读什么、按什么顺序读、什么类型，
+反过来就是写法。加上 `GetSize` 可以对写出的长度做自校验。
