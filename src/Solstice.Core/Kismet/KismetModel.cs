@@ -14,10 +14,9 @@ public enum PinType
 }
 
 /// <summary>
-/// 用到的操作码及其真实字节值。
-/// 取值来源：UAssetAPI 的 <c>EExprToken</c>（atenfyr/UAssetAPI，对应 UE 5.x）。
-///
-/// <para>实测：<c>EX_EndOfScript</c> **存在**，是函数体的最后一条表达式（见 card_event_burning_fields_skirm 的 OnPlayedFromHand：LetValueOnPersistentFrame → LocalFinalFunction → Return → EndOfScript）。</para>
+/// 用到的操作码及其真实字节值。取值来源：UAssetAPI 的 EExprToken。
+/// 实测确认 EX_EndOfScript 存在：card_event_burning_fields_skirm 的
+/// OnPlayedFromHand 是 LetValueOnPersistentFrame → LocalFinalFunction → Return → EndOfScript。
 /// </summary>
 public static class KismetOpcode
 {
@@ -36,9 +35,7 @@ public static class KismetOpcode
     public const byte IntOne = 0x26;
     public const byte True = 0x27;
     public const byte False = 0x28;
-    public const byte EndOfScript = 0x2F;
 
-    /// <summary>名字 → 字节值。未收录的返回 null（UI 显示为 <c>??</c>，提醒补表）。</summary>
     public static byte? Lookup(string name) => name switch
     {
         "EX_LocalVariable" => LocalVariable,
@@ -55,7 +52,7 @@ public static class KismetOpcode
         "EX_IntZero" => IntZero,
         "EX_IntOne" => IntOne,
         "EX_True" => True,
-        "EX_False" => False,`r`n        "EX_EndOfScript" => EndOfScript,
+        "EX_False" => False,
         _ => null
     };
 }
@@ -63,13 +60,12 @@ public static class KismetOpcode
 /// <summary>一条编译产物：操作码 + 操作数。</summary>
 public sealed record KismetInstruction(string Opcode, string Operand, int? JumpTarget = null)
 {
-    /// <summary>操作码的真实字节值；未收录为 null。</summary>
     public byte? Token => KismetOpcode.Lookup(Opcode);
 
     public string TokenHex => Token is { } t ? $"0x{t:X2}" : "??";
 
     public string Render() => JumpTarget is { } t
-        ? $"{Opcode,-24} → {t:000}"
+        ? $"{Opcode,-24} -> {t:000}"
         : string.IsNullOrEmpty(Operand) ? Opcode : $"{Opcode,-24} {Operand}";
 }
 
