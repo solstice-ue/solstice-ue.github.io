@@ -19,6 +19,7 @@
             <label class="w-file"><span>.uasset</span><InputFile OnChange="OnUassetAsync" accept=".uasset" /></label>
             <label class="w-file"><span>.uexp</span><InputFile OnChange="OnUexpAsync" accept=".uexp" /></label>
             <label class="w-file"><span>.usmap</span><InputFile OnChange="OnUsmapAsync" accept=".usmap" /></label>
+            <label class="w-file"><span>函数表（可选）</span><InputFile OnChange="OnCatalogAsync" accept=".json" /></label>
             <FlareButton Variant="ButtonVariant.Filled" OnClick="LoadAsync" Disabled="@(!_ready)">载入</FlareButton>
         </div>
     </FlareCard>
@@ -43,10 +44,9 @@
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("assign"))">+ 赋值</FlareButton>
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("assign-bool"))">+ 布尔赋值</FlareButton>
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("call"))">+ 调用</FlareButton>
-                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("context-call"))">+ 跨对象调用</FlareButton>
-                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("virtual-call"))">+ 虚调用</FlareButton>
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("if"))">+ 条件</FlareButton>
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("loop"))">+ 循环</FlareButton>
+                <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("end"))">+ 块结束</FlareButton>
                 <FlareButton Variant="ButtonVariant.Outlined" OnClick="@(() => Add("return"))">+ 返回</FlareButton>
             </div>
 
@@ -74,7 +74,11 @@
                     var ins = InputsOf(spec);
                     var outs = OutputsOf(spec);
 
-                    <div class="w-node" style="top:@(row * RowHeight)px;">
+                    var depth = DepthOf(row);
+                    if (spec.Kind == "end") { depth = Math.Max(0, depth - 1); }
+                    var indent = depth * 24;
+
+                    <div class="w-node" style="top:@(row * RowHeight)px; left:@(indent)px; width:@(CanvasWidth - indent)px;">
                         @for (var k = 0; k < ins.Count; k++)
                         {
                             var pin = ins[k];
@@ -93,14 +97,13 @@
                                 <option value="assign">赋值</option>
                                 <option value="assign-bool">布尔赋值</option>
                                 <option value="call">调用</option>
-                                <option value="context-call">跨对象调用</option>
-                                <option value="virtual-call">虚调用</option>
                                 <option value="if">条件</option>
                                 <option value="loop">循环</option>
+                                <option value="end">块结束</option>
                                 <option value="return">返回</option>
                             </select>
 
-                            @if (spec.Kind is "get" or "assign" or "assign-bool" or "context-call" or "if" or "loop")
+                            @if (spec.Kind is "get" or "assign" or "assign-bool" or "if" or "loop")
                             {
                                 <select class="w-select-sm" value="@spec.Var"
                                         @onchange="@(e => { spec.Var = e.Value?.ToString() ?? ""; Refresh(); })">
@@ -122,23 +125,17 @@
                                 </select>
                             }
 
-                            @if (spec.Kind is "call" or "context-call")
+                            @if (spec.Kind == "call")
                             {
                                 <select class="w-select-sm w-wide" value="@spec.Function"
                                         @onchange="@(e => { spec.Function = e.Value?.ToString() ?? ""; Refresh(); })">
-                                    <option value="">（选择已导入函数）</option>
+                                    <option value="">（选择函数）</option>
                                     @foreach (var f in _importChoices) { <option value="@f">@f</option> }
+                                    @foreach (var f in _localChoices) { <option value="@f">@f（本资产）</option> }
                                 </select>
                             }
 
-                            @if (spec.Kind == "virtual-call")
-                            {
-                                <select class="w-select-sm w-wide" value="@spec.Function"
-                                        @onchange="@(e => { spec.Function = e.Value?.ToString() ?? ""; Refresh(); })">
-                                    <option value="">（选择本资产函数）</option>
-                                    @foreach (var f in _localChoices) { <option value="@f">@f</option> }
-                                </select>
-                            }
+
 
                             <span class="solstice-spacer"></span>
                             <FlareButton Variant="ButtonVariant.Text" OnClick="@(() => RemoveAt(row))">删除</FlareButton>
@@ -151,6 +148,7 @@
                                   title="数据输出：拖到某个输入端"
                                   @onmousedown:preventDefault="true"
                                   @onmousedown="@(() => StartDrag(row, idx))"></span>
+                            <span class="w-pin-lbl-out" style="right:20px; top:@(PinY(k, outs.Count) + 1)px;">@outs[k].Label</span>
                         }
                     </div>
                 }
@@ -226,7 +224,7 @@
     .w-pin-in { background:#cde5ff; border:2px solid #00639b; }
     .w-pin-out { background:#b2f1c5; border:2px solid #2e6c47; }
     .w-pin:hover { transform:scale(1.35); }
-    .w-pin-lbl { position:absolute; font-size:11px; opacity:.6; pointer-events:none; }
+    .w-pin-lbl, .w-pin-lbl-out { position:absolute; font-size:11px; opacity:.6; pointer-events:none; }
     .w-hex { margin:8px 0 0; padding:8px; border-radius:6px; max-height:120px; overflow:auto;
              background:var(--flare-color-surface-container-high); font-size:11px; word-break:break-all; }
     .w-code { margin-top:8px; font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.7;
@@ -248,7 +246,7 @@
 
     private sealed record DataLink(int From, string FromPin, int To, string ToPin);
 
-    private byte[]? _uasset, _uexp, _usmap;
+    private byte[]? _uasset, _uexp, _usmap, _catalogJson;
     private KismetWorkspace? _ws;
     private List<string> _functions = [];
     private List<string> _variables = [];
@@ -275,20 +273,63 @@
 
     // ---- 节点形状 ----
 
-    private static List<(string Id, string Label)> InputsOf(NodeSpec s) => s.Kind switch
-    {
-        "assign" or "assign-bool" => [("value", "值")],
-        "call" or "virtual-call" => [("arg", "参数")],
-        "context-call" => [("obj", "对象"), ("arg", "参数")],
-        "if" or "loop" => [("cond", "条件")],
-        _ => []
-    };
+    /// <summary>调用节点的签名（没载函数表时返回 null）。</summary>
+    private FunctionSignature? SigOf(NodeSpec s)
+        => s.Kind == "call" && !string.IsNullOrEmpty(s.Function) ? _ws?.SignatureOf(s.Function) : null;
 
-    private static List<(string Id, string Label)> OutputsOf(NodeSpec s) => s.Kind switch
+    private List<(string Id, string Label)> InputsOf(NodeSpec s)
     {
-        "get" or "const" => [("val", "值")],
-        _ => []
-    };
+        switch (s.Kind)
+        {
+            case "assign" or "assign-bool": return [("value", "值")];
+            case "if" or "loop": return [("cond", "条件")];
+            case "call":
+            {
+                var list = new List<(string, string)>();
+                var sig = SigOf(s);
+
+                // 非静态函数需要一个对象作为上下文
+                if (sig is not null && !sig.IsStatic) { list.Add(("obj", "对象")); }
+
+                var count = sig?.Inputs.Count ?? 1;
+                for (var i = 0; i < count; i++)
+                {
+                    var p = sig is null ? null : sig.Inputs[i];
+                    list.Add(($"arg{i}", p is null ? "参数" : p.Name));
+                }
+
+                return list;
+            }
+            default: return [];
+        }
+    }
+
+    private List<(string Id, string Label)> OutputsOf(NodeSpec s)
+    {
+        switch (s.Kind)
+        {
+            case "get" or "const": return [("val", "值")];
+            case "call":
+            {
+                var sig = SigOf(s);
+                if (sig is null) { return []; }
+                return sig.Outputs.Select((p, i) => ($"ret{i}", p.Name)).ToList();
+            }
+            default: return [];
+        }
+    }
+
+    /// <summary>某个源节点能提供的数据。</summary>
+    private KArg? ArgOf(int sourceRow)
+    {
+        var src = _specs[sourceRow];
+        return src.Kind switch
+        {
+            "get" => new LocalArg(src.Var),
+            "const" => new IntArg(src.Value),
+            _ => null
+        };
+    }
 
     private static int PinY(int index, int count)
         => count <= 1 ? (RowHeight - 8) / 2 - 6 : 12 + index * 22;
@@ -297,7 +338,7 @@
     {
         var ins = InputsOf(_specs[row]);
         var idx = Math.Max(ins.FindIndex(p => p.Id == pinId), 0);
-        return (10, row * RowHeight + PinY(idx, ins.Count) + 6);
+        return (DepthOf(row) * 24 + 10, row * RowHeight + PinY(idx, ins.Count) + 6);
     }
 
     private (double X, double Y) OutputPoint(int row, int index, int count)
@@ -322,6 +363,12 @@
     private async Task OnUexpAsync(InputFileChangeEventArgs e) { _uexp = await ReadAsync(e.File); _status = $"uexp {_uexp.Length} 字节"; }
     private async Task OnUsmapAsync(InputFileChangeEventArgs e) { _usmap = await ReadAsync(e.File); _status = $"usmap {_usmap.Length} 字节"; }
 
+    private async Task OnCatalogAsync(InputFileChangeEventArgs e)
+    {
+        _catalogJson = await ReadAsync(e.File);
+        _status = $"函数表 {_catalogJson.Length} 字节";
+    }
+
     private void LoadAsync()
     {
         _error = "";
@@ -332,8 +379,16 @@
             _importChoices = _ws.FunctionImports.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList();
             _localChoices = _functions.ToList();
             _selected = _functions.FirstOrDefault() ?? "";
+
+            if (_catalogJson is { Length: > 0 })
+            {
+                _ws.AttachCatalog(FunctionCatalog.Load(System.Text.Encoding.UTF8.GetString(_catalogJson)));
+            }
+
             InitializeForFunction();
-            _status = $"已载入：{_functions.Count} 个函数 / {_importChoices.Count} 个可导入";
+            _status = _ws.Catalog is null
+                ? $"已载入：{_functions.Count} 个函数 / {_importChoices.Count} 个可导入（未载函数表，调用只有通用参数）"
+                : $"已载入：{_functions.Count} 个函数 / {_importChoices.Count} 个可导入 / 签名 {_ws.Catalog.Count} 条";
         }
         catch (Exception ex)
         {
@@ -397,13 +452,9 @@
     private void ChangeKind(NodeSpec spec, ChangeEventArgs e)
     {
         spec.Kind = e.Value?.ToString() ?? "assign";
-        if (spec.Kind == "virtual-call" && !_localChoices.Contains(spec.Function))
+        if (spec.Kind == "call" && !_importChoices.Contains(spec.Function) && !_localChoices.Contains(spec.Function))
         {
-            spec.Function = _localChoices.FirstOrDefault() ?? "";
-        }
-        else if (spec.Kind is "call" or "context-call" && !_importChoices.Contains(spec.Function))
-        {
-            spec.Function = _importChoices.FirstOrDefault() ?? "";
+            spec.Function = _importChoices.FirstOrDefault() ?? _localChoices.FirstOrDefault() ?? "";
         }
 
         Refresh();
@@ -460,7 +511,8 @@
 
     private List<KNode> BuildNodes() => BuildRange(0, out _);
 
-    private List<KNode> BuildRange(int start, out int consumed)
+    /// <summary>解析到最近的「块结束」为止；没有块结束时吃到列表末尾。</summary>
+    private List<KNode> BuildRange(int start, out int next)
     {
         var nodes = new List<KNode>();
         var i = start;
@@ -469,14 +521,20 @@
         {
             var s = _specs[i];
 
+            if (s.Kind == "end")
+            {
+                next = i + 1;
+                return nodes;
+            }
+
             if (s.Kind is "if" or "loop")
             {
-                var body = BuildRange(i + 1, out var inner);
-                consumed = (i + 1 + inner) - start;
+                var body = BuildRange(i + 1, out var after);
 
                 var cond = ArgFor(i, "cond", new LocalArg(s.Var));
                 nodes.Add(s.Kind == "if" ? new IfNode(cond, body) : new LoopNode(cond, body));
-                return nodes;
+                i = after;
+                continue;
             }
 
             var node = ToNode(s, i);
@@ -484,33 +542,91 @@
             i++;
         }
 
-        consumed = i - start;
+        next = i;
         return nodes;
     }
 
-    private KNode? ToNode(NodeSpec s, int row) => s.Kind switch
+    /// <summary>该行处于第几层块内（用于缩进显示）。</summary>
+    private int DepthOf(int row)
     {
-        "get" or "const" => null, // 纯数据源，不产生指令
-        "assign" => new AssignNode(s.Var, ArgFor(row, "value", new IntArg(s.Value))),
-        "assign-bool" => new AssignBoolNode(s.Var, s.BoolValue),
-        "call" when !string.IsNullOrEmpty(s.Function) =>
-            new CallNode(s.Function, OneArg(ArgFor(row, "arg", new IntArg(0)), row, "arg")),
-        "context-call" when !string.IsNullOrEmpty(s.Function) =>
-            new ContextCallNode(
-                s.Var,
-                s.Function,
-                OneArg(ArgFor(row, "arg", new IntArg(0)), row, "arg")),
-        "virtual-call" when !string.IsNullOrEmpty(s.Function) =>
-            new VirtualCallNode(s.Function, OneArg(ArgFor(row, "arg", new IntArg(0)), row, "arg")),
-        "return" => new ReturnNode(),
-        _ => null
-    };
+        var depth = 0;
+        for (var i = 0; i < row && i < _specs.Count; i++)
+        {
+            if (_specs[i].Kind is "if" or "loop") { depth++; }
+            else if (_specs[i].Kind == "end" && depth > 0) { depth--; }
+        }
 
-    /// <summary>只有连线过或显式给过参数时才带一个实参。</summary>
-    private List<KArg> OneArg(KArg arg, int row, string pinId)
+        return depth;
+    }
+
+    private KNode? ToNode(NodeSpec s, int row)
     {
-        var linked = _dataLinks.Any(l => l.To == row && l.ToPin == pinId);
-        return linked ? [arg] : [];
+        switch (s.Kind)
+        {
+            case "get" or "const":
+                return null; // 纯数据源，不产生指令
+            case "assign":
+                return new AssignNode(s.Var, ArgFor(row, "value", new IntArg(s.Value)));
+            case "assign-bool":
+                return new AssignBoolNode(s.Var, s.BoolValue);
+            case "return":
+                return new ReturnNode();
+            case "call" when !string.IsNullOrEmpty(s.Function):
+                return BuildCall(s, row);
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// 调用的指令形态由系统推断，不需要用户选：
+    /// 本资产函数 → EX_LocalVirtualFunction；静态函数 → EX_FinalFunction；实例函数 → EX_Context。
+    /// </summary>
+    private KNode BuildCall(NodeSpec s, int row)
+    {
+        var sig = SigOf(s);
+        var args = new List<KArg>();
+
+        var count = sig?.Inputs.Count ?? 1;
+        for (var i = 0; i < count; i++)
+        {
+            var pin = $"arg{i}";
+            var link = _dataLinks.FirstOrDefault(l => l.To == row && l.ToPin == pin);
+            var label = sig is null ? pin : sig.Inputs[i].Name;
+
+            if (link is null)
+            {
+                if (sig is null) { continue; } // 没有签名时按无参处理
+                throw new InvalidOperationException($"调用 {s.Function} 的参数「{label}」未连接");
+            }
+
+            args.Add(ArgOf(link.From)
+                     ?? throw new InvalidOperationException($"参数「{label}」的来源不能提供值"));
+        }
+
+        if (_functions.Contains(s.Function))
+        {
+            return new VirtualCallNode(s.Function, args);
+        }
+
+        if (sig is not null && sig.IsStatic)
+        {
+            return new CallNode(s.Function, args);
+        }
+
+        var objLink = _dataLinks.FirstOrDefault(l => l.To == row && l.ToPin == "obj");
+        if (objLink is null)
+        {
+            throw new InvalidOperationException($"调用 {s.Function} 是非静态函数，需要连接「对象」");
+        }
+
+        var obj = _specs[objLink.From];
+        if (obj.Kind != "get")
+        {
+            throw new InvalidOperationException("「对象」只能来自「读变量」节点");
+        }
+
+        return new ContextCallNode(obj.Var, s.Function, args);
     }
 
     private void Refresh()

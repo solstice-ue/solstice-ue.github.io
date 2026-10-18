@@ -71,6 +71,49 @@ public sealed class KismetWorkspace
     /// <summary>可调用的函数导入（名字 → 索引），供 UI 提示用。</summary>
     public IReadOnlyDictionary<string, FPackageIndex> FunctionImports => ImportIndex.BuildFunctionIndex(_asset);
 
+    /// <summary>函数签名目录（可选，由 jmap 函数表载入）。</summary>
+    public FunctionCatalog? Catalog { get; private set; }
+
+    public void AttachCatalog(FunctionCatalog catalog) => Catalog = catalog;
+
+    /// <summary>
+    /// 把函数导入解析成 owner 完整路径，例如 <c>/Script/Engine.KismetSystemLibrary</c>。
+    /// 链：Function → Class → Package。
+    /// </summary>
+    public string? FunctionOwnerPath(string functionName)
+    {
+        for (var i = 0; i < _asset.Imports.Count; i++)
+        {
+            var im = _asset.Imports[i];
+            if (im.ClassName?.ToString() != "Function" || im.ObjectName?.ToString() != functionName)
+            {
+                continue;
+            }
+
+            var outer = im.OuterIndex?.Index ?? 0;
+            if (outer >= 0)
+            {
+                return null;
+            }
+
+            var cls = _asset.Imports[-outer - 1];
+            var clsOuter = cls.OuterIndex?.Index ?? 0;
+            if (clsOuter >= 0)
+            {
+                return $"/Script/{cls.ObjectName}";
+            }
+
+            var pkg = _asset.Imports[-clsOuter - 1];
+            return $"{pkg.ObjectName}.{cls.ObjectName}";
+        }
+
+        return null;
+    }
+
+    /// <summary>查某个函数导入的签名（需要先 AttachCatalog）。</summary>
+    public FunctionSignature? SignatureOf(string functionName)
+        => Catalog?.Find(FunctionOwnerPath(functionName), functionName);
+
     /// <summary>
     /// 按节点 JSON 生成字节码并写回函数。
     /// 返回生成结果的指令名序列与序列化后的十六进制。
