@@ -1,3 +1,4 @@
+using UAssetAPI.UnrealTypes;
 using UAssetAPI.Kismet.Bytecode;
 using UAssetAPI.Kismet.Bytecode.Expressions;
 
@@ -122,7 +123,8 @@ public static class KismetCompiler
     /// </summary>
     public static IReadOnlyList<KismetExpression> CompileToExpressions(
         IReadOnlyList<KNode> nodes,
-        IReadOnlyDictionary<string, KismetPropertyPointer>? variables = null)
+        IReadOnlyDictionary<string, KismetPropertyPointer>? variables = null,
+        IReadOnlyDictionary<string, FPackageIndex>? functions = null)
     {
         var result = new List<KismetExpression>();
 
@@ -145,10 +147,29 @@ public static class KismetCompiler
             }
         }
 
+        KismetExpression[] BuildArgs(CallNode c)
+        {
+            var args = new List<KismetExpression>();
+            var before = result.Count;
+            foreach (var a in c.Args)
+            {
+                EmitArg(a);
+            }
+
+            args.AddRange(result.Skip(before));
+            result.RemoveRange(before, result.Count - before);
+            return args.ToArray();
+        }
+
         foreach (var node in nodes)
         {
             switch (node)
             {
+                case CallNode c when functions is not null && functions.TryGetValue(c.Function, out var fnIndex):
+                    // 函数调用：StackNode 指向 Import 表里的函数，参数在 Parameters 里
+                    result.Add(new EX_FinalFunction { StackNode = fnIndex, Parameters = BuildArgs(c) });
+                    break;
+
                 case CallNode c:
                     foreach (var a in c.Args)
                     {
